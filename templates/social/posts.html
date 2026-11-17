@@ -17,7 +17,7 @@
       <div class="min-w-0 flex-1">
         <p class="truncate font-medium">{{ publication.text|truncatechars:140 }}</p>
         <p class="truncate text-xs text-muted">
-          {{ publication.created_at|date:"d/m/Y H:i" }} · {{ counts.published }} publicada(s){% if counts.failed %} · {{ counts.failed }} com falha{% endif %}{% if counts.pending %} · {{ counts.pending }} pendente(s){% endif %}
+          {{ publication.created_at|date:"d/m/Y H:i" }} · {{ counts.published }} publicada(s){% if counts.failed %} · {{ counts.failed }} com falha{% endif %}{% if counts.uncertain %} · {{ counts.uncertain }} incerto(s){% endif %}{% if counts.pending %} · {{ counts.pending }} pendente(s){% endif %}
         </p>
       </div>
       <span class="badge {% if publication.status == 'published' %}badge-ok{% elif publication.status == 'failed' %}badge-danger{% else %}badge-warn{% endif %}">{{ publication.status_label }}</span>

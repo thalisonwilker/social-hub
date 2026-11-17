@@ -2,7 +2,14 @@
 {% block content %}
 <div class="mb-4"><a href="{% url 'social:posts' %}" class="text-xs font-medium text-accent hover:underline">← Voltar às publicações</a></div>
 
-<div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+{% if worker_warning %}
+<div class="card mb-4 flex items-start gap-3 border-l-2 border-l-warn px-4 py-3" role="status">
+  <i data-lucide="triangle-alert" class="mt-0.5 h-4 w-4 shrink-0 text-warn"></i>
+  <p>O envio em segundo plano não está ativo: os envios ficam na fila até o worker voltar.</p>
+</div>
+{% endif %}
+
+<div class="grid grid-cols-1 gap-4 lg:grid-cols-3"{% if poll %} data-poll-url="{% url 'social:post_state' publication.pk %}" data-poll-signature="{{ poll_signature }}" data-poll-interval="3000"{% endif %}>
   <section class="card p-5 lg:col-span-1" aria-label="Conteúdo">
     {% if publication.has_image %}
       <img src="{% url 'social:post_image' publication.pk %}" alt="Imagem da publicação" class="mb-4 w-full rounded border border-line object-cover">
@@ -20,7 +27,7 @@
     <div class="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4">
       <div>
         <h2 class="card-title">Resultado por Página</h2>
-        <p class="text-xs text-muted">{{ counts.published }} publicada(s) · {{ counts.failed }} com falha · {{ counts.pending }} pendente(s){% if counts.sending %} · {{ counts.sending }} enviando{% endif %}</p>
+        <p class="text-xs text-muted">{{ counts.published }} publicada(s) · {{ counts.failed }} com falha · {{ counts.pending }} pendente(s){% if counts.uncertain %} · {{ counts.uncertain }} incerto(s){% endif %}{% if counts.sending %} · {{ counts.sending }} enviando{% endif %}</p>
       </div>
       {% if can_send %}
       <form method="post" action="{% url 'social:post_send' publication.pk %}" data-confirm="{{ confirm_message }}" data-disable-on-submit>
@@ -40,12 +47,26 @@
             <span class="text-xs font-normal text-muted">· {% if target.platform == 'whatsapp_status' %}Status do WhatsApp · instância {{ target.page_external_id }}{% else %}{{ target.get_platform_display }}{% endif %}</span></p>
           {% if target.status == 'failed' %}
             <p class="text-xs text-danger">{{ target.error_message }}</p>
+          {% elif target.status == 'uncertain' %}
+            <p class="text-xs text-warn">{{ target.error_message }}</p>
+            <div class="mt-2 flex flex-wrap gap-2">
+              <form method="post" action="{% url 'social:target_resolve' publication.pk target.pk %}" data-confirm="Marcar este destino como já publicado?">
+                {% csrf_token %}
+                <input type="hidden" name="acao" value="publicado">
+                <button type="submit" class="btn"><i data-lucide="check" class="h-4 w-4"></i>Já foi publicado</button>
+              </form>
+              <form method="post" action="{% url 'social:target_resolve' publication.pk target.pk %}" data-confirm="Reenviar pode duplicar o post na plataforma. Continuar?">
+                {% csrf_token %}
+                <input type="hidden" name="acao" value="reenviar">
+                <button type="submit" class="btn" {% if not target.can_resend %}disabled aria-disabled="true" title="Sem conta conectada: só dá para marcar como já publicado"{% endif %}><i data-lucide="refresh-cw" class="h-4 w-4"></i>Reenviar</button>
+              </form>
+            </div>
           {% elif target.status == 'published' %}
             <p class="text-xs text-muted">Publicado em {{ target.published_at|date:"d/m/Y H:i" }}{% if not target.permalink %} · link indisponível{% endif %}</p>
           {% elif target.status == 'sending' %}
-            <p class="text-xs text-muted">Envio em andamento…</p>
+            <p class="text-xs text-muted">Enviando…</p>
           {% else %}
-            <p class="text-xs text-muted">Aguardando envio</p>
+            <p class="text-xs text-muted">{% if worker_mode %}Na fila{% else %}Aguardando envio{% endif %}</p>
           {% endif %}
         </div>
         <span class="badge {% if target.status == 'published' %}badge-ok{% elif target.status == 'failed' %}badge-danger{% else %}badge-warn{% endif %}">{{ target.get_status_display }}</span>

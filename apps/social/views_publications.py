@@ -183,13 +183,25 @@ class PostDetailView(View):
     def get(self, request, pk):
         publication = get_publication_or_404(request, pk)
         targets = list(publication.targets.all())
+        background = publish_in_background()
+        in_progress = any(t.status in (publishing.S.PENDING, publishing.S.SENDING) for t in targets)
+        if background:  # só "Tentar novamente" (failed → fila); "Continuar envio" não existe neste modo (spec 0007)
+            can_send = has_failed = any(t.can_try_again for t in targets)
+        else:
+            can_send = any(t.is_retryable for t in targets)
+            has_failed = any(t.status == "failed" and t.is_retryable for t in targets)
         context = {
             "page_title": f"Publicação #{publication.pk}",
             "publication": publication,
             "targets": targets,
             "counts": publication.status_counts(),
-            "can_send": any(t.is_retryable for t in targets),
-            "has_failed": any(t.status == "failed" and t.is_retryable for t in targets),
+            "can_send": can_send,
+            "has_failed": has_failed,
+            "worker_mode": background,
+            # Polling só enquanto há alvo na fila/enviando; com tudo terminado a página não traz o atributo (nenhuma consulta).
+            "poll": in_progress,
+            "poll_signature": "|".join(f"{t.pk}:{t.status}" for t in targets),
+            "worker_warning": background and in_progress and not WorkerHeartbeat.is_active(),
             "confirm_message": CONFIRM,
         }
         return render(request, "social/post_detail.html", context)
