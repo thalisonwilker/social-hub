@@ -1,13 +1,12 @@
-"""Rotas das redes sociais.
+"""Rotas das redes sociais: contas conectadas (0002) e publicações (0003).
 
-Por enquanto são páginas reservadas. As integrações (Meta Graph API, Threads),
-modelos de contas/publicações e o agendamento serão implementados neste app.
+A agenda ainda é uma página reservada.
 """
 from django.urls import path
 
 from apps.core.views import PlaceholderView
 
-from . import views
+from . import views, views_publications
 
 app_name = "social"
 
@@ -18,16 +17,11 @@ urlpatterns = [
     path("contas/", views.AccountsView.as_view(), name="accounts"),
     path("contas/<int:pk>/verificar/", views.AccountCheckView.as_view(), name="account_check"),
     path("contas/<int:pk>/desconectar/", views.AccountDisconnectView.as_view(), name="account_disconnect"),
-    path(
-        "publicacoes/",
-        PlaceholderView.as_view(
-            title="Publicações",
-            icon="file-text",
-            description="Crie e publique conteúdos em várias redes ao mesmo tempo.",
-            planned=("Editor com pré-visualização por rede", "Biblioteca de mídia", "Histórico e status de publicação"),
-        ),
-        name="posts",
-    ),
+    path("publicacoes/", views_publications.PostsView.as_view(), name="posts"),
+    path("publicacoes/nova/", views_publications.PostNewView.as_view(), name="post_new"),
+    path("publicacoes/<int:pk>/", views_publications.PostDetailView.as_view(), name="post_detail"),
+    path("publicacoes/<int:pk>/enviar/", views_publications.PostSendView.as_view(), name="post_send"),
+    path("publicacoes/<int:pk>/imagem/", views_publications.PostImageView.as_view(), name="post_image"),
     path(
         "agenda/",
         PlaceholderView.as_view(

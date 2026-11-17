@@ -24,7 +24,7 @@
     // "Marcar todas": alterna todas as caixas do formulário.
     var selectAll = event.target.closest("[data-select-all]");
     if (selectAll) {
-      var boxes = selectAll.closest("form").querySelectorAll('input[type="checkbox"]');
+      var boxes = selectAll.closest("form").querySelectorAll('input[type="checkbox"]:not(:disabled)');
       var allChecked = Array.prototype.every.call(boxes, function (b) { return b.checked; });
       boxes.forEach(function (b) { b.checked = !allChecked; });
       return;
@@ -46,8 +46,15 @@
 
   // Formulários com data-confirm pedem confirmação antes de enviar (ex.: desconectar).
   document.addEventListener("submit", function (event) {
-    var message = event.target.getAttribute("data-confirm");
-    if (message && !window.confirm(message)) event.preventDefault();
+    var form = event.target;
+    var message = form.getAttribute("data-confirm");
+    if (message && !window.confirm(message)) { event.preventDefault(); return; }
+    // Evita envio duplo: desabilita os botões de envio logo após o submit.
+    if (form.hasAttribute("data-disable-on-submit")) {
+      setTimeout(function () {
+        form.querySelectorAll('button[type="submit"]').forEach(function (b) { b.disabled = true; });
+      }, 0);
+    }
   });
 
   document.addEventListener("keydown", function (event) {

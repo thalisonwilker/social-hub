@@ -82,6 +82,7 @@
   }
   .badge-ok { @apply text-ok; }
   .badge-warn { @apply text-warn; }
+  .badge-danger { @apply text-danger; }
 
   .nav-link {
     @apply relative flex items-center gap-3 rounded px-3 py-2.5 text-sm text-zinc-400 transition-colors hover:bg-white/5 hover:text-white lg:justify-center lg:px-0;

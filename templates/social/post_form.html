@@ -1,0 +1,69 @@
+{% extends "layout.html" %}
+{% block content %}
+{% if blocked %}
+<section class="card mx-auto max-w-xl p-8 text-center">
+  <span class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded border border-line bg-surface-2 text-accent"><i data-lucide="share-2" class="h-6 w-6"></i></span>
+  <h2 class="text-base font-semibold">Não é possível publicar agora</h2>
+  <p class="mt-1 text-muted">{{ blocked }}</p>
+  <a href="{% url 'social:accounts' %}" class="btn btn-primary mt-5">Ir para Contas conectadas</a>
+</section>
+{% else %}
+<form method="post" enctype="multipart/form-data" class="card max-w-3xl" novalidate
+      data-confirm="{{ confirm_message }}" data-disable-on-submit>
+  {% csrf_token %}
+  <div class="space-y-5 p-5 sm:p-6">
+    {% if form.non_field_errors %}
+      <div class="border-l-2 border-l-danger bg-surface-2 px-3 py-2 text-danger" role="alert">{% for e in form.non_field_errors %}{{ e }}{% endfor %}</div>
+    {% endif %}
+
+    <div>
+      <label class="label" for="{{ form.text.id_for_label }}">Texto</label>
+      {{ form.text }}
+      <p class="mt-1 text-xs text-muted">Até {{ max_text }} caracteres.</p>
+      {% for error in form.text.errors %}<p class="mt-1 text-xs text-danger">{{ error }}</p>{% endfor %}
+    </div>
+
+    <div>
+      <label class="label" for="{{ form.image.id_for_label }}">Imagem</label>
+      {{ form.image }}
+      <p class="mt-1 text-xs text-muted">JPEG ou PNG, até 8 MB. Os metadados (como localização) são removidos.</p>
+      {% for error in form.image.errors %}<p class="mt-1 text-xs text-danger">{{ error }}</p>{% endfor %}
+    </div>
+
+    <fieldset>
+      <div class="mb-2 flex items-center justify-between">
+        <legend class="label !mb-0">Páginas</legend>
+        <button type="button" data-select-all class="btn btn-ghost px-2 py-1 text-xs">Marcar todas</button>
+      </div>
+      <ul class="divide-y divide-line rounded border border-line">
+        {% for account in all_accounts %}
+        <li>
+          <label class="flex items-center gap-3 px-4 py-3 {% if account.needs_reauth %}cursor-not-allowed opacity-60{% else %}cursor-pointer hover:bg-surface-2{% endif %}">
+            <input type="checkbox" name="accounts" value="{{ account.pk }}" class="h-4 w-4 accent-accent"
+                   {% if account.needs_reauth %}disabled{% endif %}
+                   {% if account.pk|stringformat:"s" in selected %}checked{% endif %}>
+            <span class="min-w-0 flex-1">
+              <span class="block truncate font-medium">{{ account.name }}</span>
+              <span class="block truncate text-xs text-muted">{{ account.category|default:"Página do Facebook" }}</span>
+            </span>
+            {% if account.needs_reauth %}
+              <span class="badge badge-warn">Reconexão necessária</span>
+            {% endif %}
+          </label>
+        </li>
+        {% endfor %}
+      </ul>
+      {% for error in form.accounts.errors %}<p class="mt-1 text-xs text-danger">{{ error }}</p>{% endfor %}
+      {% for account in all_accounts %}{% if account.needs_reauth %}
+        <p class="mt-2 text-xs text-muted">“{{ account.name }}” precisa ser reconectada em <a class="text-accent hover:underline" href="{% url 'social:accounts' %}">Contas conectadas</a>.</p>
+      {% endif %}{% endfor %}
+    </fieldset>
+  </div>
+
+  <div class="flex gap-2 border-t border-line px-5 py-4 sm:px-6">
+    <button type="submit" class="btn btn-primary"><i data-lucide="send" class="h-4 w-4"></i>Publicar agora</button>
+    <a href="{% url 'social:posts' %}" class="btn btn-ghost">Cancelar</a>
+  </div>
+</form>
+{% endif %}
+{% endblock %}
