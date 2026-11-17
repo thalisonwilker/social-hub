@@ -76,11 +76,13 @@ O usuário conecta um perfil do Threads (login próprio, token de 60 dias com re
 - **Então** só é chamado `th_refresh_token` se faltarem **menos de `THREADS_REFRESH_WINDOW_DAYS` (30)** para expirar **e** o token tiver **≥ 24 h** (`token_refreshed_at`); sucesso grava o novo token cifrado, `token_expires_at` (+60 dias) e `token_refreshed_at`; token já expirado → `needs_reauth` sem chamada; erro de token na renovação → `needs_reauth`; outro erro → mantém o token atual e segue
 
 ### AC-13: Formulário com destinos mistos
+> **Atualizado pela [0006](../0006-whatsapp-status/spec.md) (AC-6):** o formulário ganha o grupo "Status do WhatsApp" (contas de instâncias da Evolution), com as mesmas regras de reconexão e de configuração.
 - **Dado** um usuário com Páginas do Facebook e perfis do Threads
 - **Quando** abre `/publicacoes/nova/`
 - **Então** vê os destinos **ativos** agrupados por plataforma (rótulo/ícone), com caixas de seleção e "Marcar todas"; contas em "Reconexão necessária" aparecem desabilitadas com o aviso; a tela explica as regras ("Imagem obrigatória se marcar uma Página do Facebook · no Threads vai junto com o texto, até 500 — *0005*")
 
 ### AC-14: Imagem condicional
+> **Atualizado pela [0006](../0006-whatsapp-status/spec.md) (AC-7):** a imagem segue obrigatória só com Página do Facebook; com **WhatsApp** ela é opcional e vai ao Status em base64 (sem exigir endereço público).
 - **Dado** um formulário
 - **Quando** há **Página do Facebook** marcada, **então** a imagem é obrigatória e validada/sanitizada como na 0003 (ausente ou inválida → erro, nada criado)
 - **Quando** só há **perfis do Threads** marcados, **então** a imagem é opcional; se enviada, é validada e gravada e **vai ao Threads junto com o texto** (*atualizado pela [0005](../0005-threads-imagem/spec.md): antes era ignorada, com o aviso "No Threads, apenas o texto é publicado", que deixou de existir*)

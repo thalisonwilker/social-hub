@@ -36,8 +36,8 @@
       {% for target in targets %}
       <li class="flex flex-wrap items-center gap-3 px-5 py-3">
         <div class="min-w-0 flex-1">
-          <p class="truncate font-medium"><i data-lucide="{% if target.platform == 'threads' %}at-sign{% else %}facebook{% endif %}" class="mr-1 inline h-3.5 w-3.5 text-muted"></i>{{ target.page_name }}
-            <span class="text-xs font-normal text-muted">· {{ target.get_platform_display }}</span></p>
+          <p class="truncate font-medium"><i data-lucide="{% if target.platform == 'threads' %}at-sign{% elif target.platform == 'whatsapp_status' %}message-circle{% else %}facebook{% endif %}" class="mr-1 inline h-3.5 w-3.5 text-muted"></i>{{ target.page_name }}
+            <span class="text-xs font-normal text-muted">· {% if target.platform == 'whatsapp_status' %}Status do WhatsApp · instância {{ target.page_external_id }}{% else %}{{ target.get_platform_display }}{% endif %}</span></p>
           {% if target.status == 'failed' %}
             <p class="text-xs text-danger">{{ target.error_message }}</p>
           {% elif target.status == 'published' %}
