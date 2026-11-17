@@ -15,7 +15,12 @@ from .image_helpers import make_upload
 
 
 class PublicationTestMixin:
-    """Mídia em diretório temporário, Graph API mockada e atalhos para criar contas/publicações."""
+    """Mídia em diretório temporário, Graph API mockada e atalhos para criar contas/publicações.
+
+    Com `mock_publish_photo = False` o GraphClient real roda (útil para interceptar só o transporte HTTP).
+    """
+
+    mock_publish_photo = True
 
     def setUp(self):
         super().setUp()
@@ -24,10 +29,11 @@ class PublicationTestMixin:
         for override in (override_settings(MEDIA_ROOT=self.media, **VALID_META_SETTINGS),):
             override.enable()
             self.addCleanup(override.disable)
-        patcher = mock.patch.object(GraphClient, "publish_photo", autospec=True)
-        self.publish = patcher.start()
-        self.addCleanup(patcher.stop)
-        self.publish.side_effect = lambda client, page_id, token, **kw: {"photo_id": "p", "post_id": f"{page_id}_77"}
+        if self.mock_publish_photo:
+            patcher = mock.patch.object(GraphClient, "publish_photo", autospec=True)
+            self.publish = patcher.start()
+            self.addCleanup(patcher.stop)
+            self.publish.side_effect = lambda client, page_id, token, **kw: {"photo_id": "p", "post_id": f"{page_id}_77"}
         User = get_user_model()
         self.alice = User.objects.create_user("alice", password="x")
         self.bob = User.objects.create_user("bob", password="x")
