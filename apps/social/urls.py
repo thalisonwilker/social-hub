@@ -7,9 +7,14 @@ from django.urls import path
 
 from apps.core.views import PlaceholderView
 
+from . import views
+
 app_name = "social"
 
 urlpatterns = [
+    path("contas/facebook/conectar/", views.FacebookConnectView.as_view(), name="facebook_connect"),
+    path("contas/facebook/callback/", views.FacebookCallbackView.as_view(), name="facebook_callback"),
+    path("contas/facebook/selecionar/", views.FacebookSelectView.as_view(), name="facebook_select"),
     path(
         "contas/",
         PlaceholderView.as_view(
