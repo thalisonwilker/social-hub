@@ -116,6 +116,14 @@ META_TOKEN_ENCRYPTION_KEY = os.environ.get("META_TOKEN_ENCRYPTION_KEY", "")
 META_HTTP_TIMEOUT = 10  # segundos, por chamada à Graph API
 META_UPLOAD_TIMEOUT = 30  # segundos, por upload de imagem (lote de 5 => 150 s < Gunicorn --timeout 180)
 
+# Integração com o Threads (credenciais próprias, distintas das do app principal). Ver ADR-0006.
+THREADS_APP_ID = os.environ.get("THREADS_APP_ID", "")
+THREADS_APP_SECRET = os.environ.get("THREADS_APP_SECRET", "")
+THREADS_REDIRECT_URI = os.environ.get("THREADS_REDIRECT_URI", "")  # HTTPS; idêntica à cadastrada na Meta
+THREADS_GRAPH_VERSION = os.environ.get("THREADS_GRAPH_VERSION", "v1.0")
+THREADS_REFRESH_WINDOW_DAYS = int(os.environ.get("THREADS_REFRESH_WINDOW_DAYS", "30"))
+THREADS_CONTAINER_WAIT_SECONDS = int(os.environ.get("THREADS_CONTAINER_WAIT_SECONDS", "20"))
+
 LOGIN_URL = "accounts:login"
 LOGIN_REDIRECT_URL = "dashboard:index"
 LOGOUT_REDIRECT_URL = "accounts:login"

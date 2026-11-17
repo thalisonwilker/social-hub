@@ -33,3 +33,20 @@ def meta_configured() -> bool:
     if not all(getattr(settings, name, "") for name in REQUIRED_SETTINGS):
         return False
     return _keys_are_valid()
+
+
+THREADS_REQUIRED_SETTINGS = ("THREADS_APP_ID", "THREADS_APP_SECRET", "THREADS_REDIRECT_URI")
+
+
+def threads_configured() -> bool:
+    """True quando as variáveis THREADS_* estão preenchidas e há chave válida para cifrar os tokens."""
+    if not all(getattr(settings, name, "") for name in THREADS_REQUIRED_SETTINGS):
+        return False
+    return _keys_are_valid()
+
+
+def threads_redirect_host() -> str:
+    """Host (com porta) do THREADS_REDIRECT_URI: a conexão deve ser iniciada por ele (cookie de sessão por host)."""
+    from urllib.parse import urlparse
+
+    return urlparse(getattr(settings, "THREADS_REDIRECT_URI", "") or "").netloc
