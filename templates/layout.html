@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}{% if page_title %}{{ page_title }} · {% endif %}Social Hub{% endblock %}
+
+{% block body %}
+<div id="sidebar-backdrop" data-sidebar-close class="fixed inset-0 z-30 hidden bg-black/50 lg:hidden"></div>
+
+{% include "partials/sidebar.html" %}
+
+<div class="lg:pl-16">
+  {% include "partials/header.html" %}
+
+  <main class="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+    {% if messages %}
+      <div class="mb-5 space-y-2" role="status">
+        {% for message in messages %}
+          <div class="card flex items-start justify-between gap-3 border-l-2 px-4 py-3 {% if message.level_tag == 'error' %}border-l-danger{% else %}border-l-ok{% endif %}">
+            <span>{{ message }}</span>
+            <button type="button" data-dismiss class="text-muted hover:text-fg" aria-label="Fechar aviso"><i data-lucide="x" class="h-4 w-4"></i></button>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    {% block content %}{% endblock %}
+  </main>
+</div>
+{% endblock %}

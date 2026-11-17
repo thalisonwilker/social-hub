@@ -1,0 +1,29 @@
+<aside id="sidebar" class="fixed inset-y-0 left-0 z-40 flex w-64 -translate-x-full flex-col bg-sidebar px-3 py-4 transition-transform lg:w-16 lg:translate-x-0" aria-label="Navegação principal">
+  <div class="mb-6 flex items-center justify-between lg:justify-center">
+    <a href="{% url 'dashboard:index' %}" class="flex items-center gap-3 text-white" aria-label="Social Hub">
+      <span class="flex h-9 w-9 items-center justify-center rounded bg-accent text-accent-fg shadow-raised"><i data-lucide="layers" class="h-5 w-5"></i></span>
+      <span class="text-base font-semibold tracking-tight lg:hidden">Social Hub</span>
+    </a>
+    <button type="button" data-sidebar-close class="text-zinc-400 hover:text-white lg:hidden" aria-label="Fechar menu"><i data-lucide="x" class="h-5 w-5"></i></button>
+  </div>
+
+  <nav class="flex flex-1 flex-col gap-1">
+    {% for item in nav_items %}
+      <a href="{% url item.url %}" class="nav-link group" {% if item.active %}aria-current="page"{% endif %}>
+        <i data-lucide="{{ item.icon }}" class="h-5 w-5 shrink-0"></i>
+        <span class="lg:hidden">{{ item.label }}</span>
+        <span class="nav-tip" role="tooltip">{{ item.label }}</span>
+      </a>
+    {% endfor %}
+  </nav>
+
+  <div class="flex flex-col gap-1 border-t border-white/10 pt-3">
+    {% for item in nav_footer %}
+      <a href="{% url item.url %}" class="nav-link group" {% if item.active %}aria-current="page"{% endif %}>
+        <i data-lucide="{{ item.icon }}" class="h-5 w-5 shrink-0"></i>
+        <span class="lg:hidden">{{ item.label }}</span>
+        <span class="nav-tip" role="tooltip">{{ item.label }}</span>
+      </a>
+    {% endfor %}
+  </div>
+</aside>

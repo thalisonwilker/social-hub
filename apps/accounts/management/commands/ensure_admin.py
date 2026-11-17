@@ -1,0 +1,31 @@
+import os
+
+from django.contrib.auth import get_user_model
+from django.core.management.base import BaseCommand
+
+
+class Command(BaseCommand):
+    help = (
+        "Cria o superusuário inicial a partir de DJANGO_SUPERUSER_USERNAME, "
+        "DJANGO_SUPERUSER_PASSWORD e DJANGO_SUPERUSER_EMAIL. Idempotente: "
+        "não altera um usuário que já existe."
+    )
+
+    def handle(self, *args, **options):
+        username = os.environ.get("DJANGO_SUPERUSER_USERNAME")
+        password = os.environ.get("DJANGO_SUPERUSER_PASSWORD")
+        if not username or not password:
+            self.stdout.write("DJANGO_SUPERUSER_* não definidas; nenhum usuário criado.")
+            return
+
+        User = get_user_model()
+        if User.objects.filter(username=username).exists():
+            self.stdout.write(f"Usuário '{username}' já existe; nada a fazer.")
+            return
+
+        User.objects.create_superuser(
+            username=username,
+            email=os.environ.get("DJANGO_SUPERUSER_EMAIL", ""),
+            password=password,
+        )
+        self.stdout.write(self.style.SUCCESS(f"Superusuário '{username}' criado."))

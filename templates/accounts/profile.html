@@ -1,0 +1,32 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="max-w-2xl space-y-5">
+  <section class="card p-5">
+    <h2 class="card-title mb-4">Dados da conta</h2>
+    <dl class="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-[10rem_1fr]">
+      <dt class="text-muted">Usuário</dt><dd class="font-medium">{{ user.get_username }}</dd>
+      <dt class="text-muted">E-mail</dt><dd>{{ user.email|default:"—" }}</dd>
+      <dt class="text-muted">Perfil</dt><dd>{% if user.is_superuser %}Administrador{% else %}Usuário{% endif %}</dd>
+      <dt class="text-muted">Último acesso</dt><dd>{{ user.last_login|date:"d/m/Y H:i"|default:"—" }}</dd>
+    </dl>
+  </section>
+
+  <section class="card flex flex-wrap items-center justify-between gap-3 p-5">
+    <div>
+      <h2 class="card-title">Senha</h2>
+      <p class="text-muted">Altere sua senha periodicamente para manter a conta segura.</p>
+    </div>
+    <a href="{% url 'accounts:password_change' %}" class="btn"><i data-lucide="key-round" class="h-4 w-4"></i>Alterar senha</a>
+  </section>
+
+  {% if user.is_staff %}
+  <section class="card flex flex-wrap items-center justify-between gap-3 p-5">
+    <div>
+      <h2 class="card-title">Administração</h2>
+      <p class="text-muted">Gerencie usuários e dados pelo painel administrativo do Django.</p>
+    </div>
+    <a href="{% url 'admin:index' %}" class="btn"><i data-lucide="shield" class="h-4 w-4"></i>Abrir admin</a>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

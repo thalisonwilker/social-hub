@@ -1,0 +1,17 @@
+{% extends "layout.html" %}
+{% block content %}
+<section class="card mx-auto max-w-xl p-8 text-center">
+  <span class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded border border-line bg-surface-2 text-accent"><i data-lucide="{{ icon }}" class="h-6 w-6"></i></span>
+  <h2 class="text-base font-semibold">{{ page_title }}</h2>
+  <p class="mt-1 text-muted">{{ description }}</p>
+  <span class="badge mt-4"><i data-lucide="clock" class="h-3.5 w-3.5"></i>Disponível nas próximas etapas</span>
+
+  {% if planned %}
+  <ul class="mt-6 space-y-2 border-t border-line pt-5 text-left">
+    {% for item in planned %}
+      <li class="flex items-center gap-2 text-muted"><i data-lucide="circle-dot" class="h-4 w-4 shrink-0"></i>{{ item }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</section>
+{% endblock %}

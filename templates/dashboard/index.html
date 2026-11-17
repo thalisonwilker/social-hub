@@ -1,0 +1,107 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="mb-5 flex flex-wrap items-center justify-between gap-2">
+  <p class="text-muted">Olá, <span class="font-medium text-fg">{{ user.get_username }}</span>. Resumo dos últimos 30 dias.</p>
+  <span class="badge badge-warn"><i data-lucide="flask-conical" class="h-3.5 w-3.5"></i>Dados demonstrativos</span>
+</div>
+
+<!-- Indicadores -->
+<section class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Indicadores">
+  {% for kpi in kpis %}
+  <article class="card p-4">
+    <div class="flex items-start justify-between">
+      <p class="text-xs font-medium text-muted">{{ kpi.label }}</p>
+      <i data-lucide="{{ kpi.icon }}" class="h-4 w-4 text-muted"></i>
+    </div>
+    <div class="mt-2 flex items-end justify-between gap-3">
+      <div>
+        <p class="text-2xl font-semibold tracking-tight">{{ kpi.value }}</p>
+        <p class="mt-1 flex items-center gap-1 text-xs font-medium {% if kpi.positive %}text-ok{% else %}text-danger{% endif %}">
+          <i data-lucide="{% if kpi.positive %}trending-up{% else %}trending-down{% endif %}" class="h-3.5 w-3.5"></i>
+          {% if kpi.positive %}+{% endif %}{{ kpi.delta|floatformat:1 }}%
+          <span class="font-normal text-muted">vs. período anterior</span>
+        </p>
+      </div>
+      <svg viewBox="0 0 96 28" class="h-7 w-24 shrink-0 text-accent" aria-hidden="true" fill="none">
+        <polyline points="{{ kpi.sparkline }}" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+      </svg>
+    </div>
+  </article>
+  {% endfor %}
+</section>
+
+<div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+  <!-- Alcance semanal -->
+  <section class="card p-5 lg:col-span-2" aria-label="Alcance semanal">
+    <div class="mb-4 flex items-center justify-between">
+      <h2 class="card-title">Alcance por dia da semana</h2>
+      <span class="text-xs text-muted">Em milhares</span>
+    </div>
+    <div class="flex h-48 items-end gap-2 sm:gap-4">
+      {% for day in weekly_reach %}
+      <div class="flex h-full flex-1 flex-col items-center justify-end gap-2" title="{{ day.day }}: {{ day.value }}">
+        <span class="text-xs text-muted">{{ day.value|cut:" mil" }}</span>
+        <div class="w-full rounded-sm bg-accent/80 shadow-raised" style="height: {{ day.pct }}%"></div>
+        <span class="text-xs font-medium">{{ day.day }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <!-- Plataformas -->
+  <section class="card p-5" aria-label="Plataformas">
+    <h2 class="card-title mb-4">Plataformas</h2>
+    <ul class="space-y-4">
+      {% for p in platforms %}
+      <li>
+        <div class="mb-1.5 flex items-center justify-between">
+          <span class="flex items-center gap-2 font-medium"><i data-lucide="{{ p.icon }}" class="h-4 w-4 text-muted"></i>{{ p.name }}</span>
+          <span class="badge">{% if p.connected %}Conectado{% else %}Não conectado{% endif %}</span>
+        </div>
+        <div class="flex items-center gap-3">
+          <div class="h-1.5 flex-1 overflow-hidden rounded-sm bg-surface-2 ring-1 ring-inset ring-line">
+            <div class="h-full bg-accent" style="width: {{ p.share }}%"></div>
+          </div>
+          <span class="w-9 text-right text-xs text-muted">{{ p.share }}%</span>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+    <a href="{% url 'social:accounts' %}" class="btn mt-5 w-full"><i data-lucide="plus" class="h-4 w-4"></i>Conectar contas</a>
+  </section>
+</div>
+
+<!-- Publicações recentes -->
+<section class="card mt-4" aria-label="Publicações recentes">
+  <div class="flex items-center justify-between border-b border-line px-5 py-4">
+    <h2 class="card-title">Publicações recentes</h2>
+    <a href="{% url 'social:posts' %}" class="text-xs font-medium text-accent hover:underline">Ver todas</a>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full min-w-[34rem] text-left">
+      <thead class="text-xs text-muted">
+        <tr>
+          <th class="px-5 py-2.5 font-medium">Conteúdo</th>
+          <th class="px-3 py-2.5 font-medium">Rede</th>
+          <th class="px-3 py-2.5 font-medium">Status</th>
+          <th class="px-3 py-2.5 text-right font-medium">Alcance</th>
+          <th class="px-5 py-2.5 text-right font-medium">Data</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-line">
+        {% for post in recent_posts %}
+        <tr class="hover:bg-surface-2">
+          <td class="px-5 py-3 font-medium">{{ post.title }}</td>
+          <td class="px-3 py-3 text-muted">{{ post.platform }}</td>
+          <td class="px-3 py-3">
+            <span class="badge {% if post.status == 'published' %}badge-ok{% elif post.status == 'scheduled' %}badge-warn{% endif %}">{{ post.status_label }}</span>
+          </td>
+          <td class="px-3 py-3 text-right tabular-nums">{{ post.reach }}</td>
+          <td class="px-5 py-3 text-right tabular-nums text-muted">{{ post.date }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
