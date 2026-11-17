@@ -18,7 +18,6 @@ logger = logging.getLogger("apps.social.meta")
 MSG_NOT_CONFIGURED = "Integração com a Meta não configurada."
 MSG_NO_ACTIVE_PAGES = "Conecte ao menos uma Página ativa ou um perfil do Threads antes de publicar."
 MSG_THREADS_NOT_CONFIGURED = "Integração com o Threads não configurada."
-MSG_THREADS_IMAGE_IGNORED = "No Threads, apenas o texto é publicado: a imagem foi ignorada."
 MSG_SAVE_FAILED = "Não foi possível salvar a publicação. Tente novamente."
 CONFIRM = "Será publicado de verdade nas Páginas selecionadas. Continuar?"
 
@@ -142,8 +141,6 @@ class PostNewView(View):
             form.add_error(None, MSG_SAVE_FAILED)
             return self._render(request, form, accounts, status=500)
 
-        if form.image_ignored:
-            messages.info(request, MSG_THREADS_IMAGE_IGNORED)
         report_batch(request, publishing.send_pending(publication))
         return redirect("social:post_detail", pk=publication.pk)
 

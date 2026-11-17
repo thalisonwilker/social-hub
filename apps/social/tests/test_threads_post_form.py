@@ -46,9 +46,9 @@ class MixedFormTests(PublicationTestMixin, TestCase):
         self.assertContains(response, 'name="accounts"', count=2)
         self.assertContains(response, "Marcar todas")
         self.assertContains(response, "@maria")
-        self.assertContains(response, "Perfil do Threads · só texto")
+        self.assertContains(response, "Perfil do Threads")
         self.assertContains(response, "Obrigatória se marcar uma Página do Facebook")
-        self.assertContains(response, "No Threads vai só o texto")
+        self.assertContains(response, "No Threads, vai junto com o texto")
         self.assertContains(response, "limite é de 500")
 
     def test_AC_13_reauth_profiles_are_disabled_with_a_warning(self):
@@ -98,17 +98,6 @@ class MixedFormTests(PublicationTestMixin, TestCase):
         self.assertFalse(pub.has_image)
         self.assertEqual(pub.targets.get().status, S.PUBLISHED)
         self.publish.assert_not_called()
-
-    def test_AC_14_threads_only_ignores_a_provided_image_even_if_invalid(self):
-        """AC-14: só Threads com imagem → ignorada (nem validada, nem gravada, nem enviada), com aviso."""
-        fake = SimpleUploadedFile("qualquer.jpg", b"nem e imagem", content_type="image/jpeg")
-        with threads_mocks():
-            response = self.client.post(reverse(NEW), {"text": "x", "accounts": [self.profile.pk], "image": fake}, follow=True)
-        pub = Publication.objects.get()
-        self.assertFalse(pub.has_image)
-        self.assertContains(response, "a imagem foi ignorada")
-        from pathlib import Path
-        self.assertEqual([p for p in Path(self.media).rglob("*") if p.is_file()], [])
 
     def test_AC_14_facebook_plus_threads_with_valid_image_creates_both(self):
         """AC-14: Facebook + Threads com imagem válida → cria os dois alvos e grava a imagem."""

@@ -1,6 +1,7 @@
 from django import forms
 from django.conf import settings
 
+from .conf import public_url_configured
 from .images import ImageValidationError, sanitize_image
 from .models import SocialAccount
 from .textrules import THREADS_MAX_LINKS, THREADS_MAX_WEIGHT, count_unique_links, threads_weight
@@ -9,12 +10,19 @@ FB = SocialAccount.Platform.FACEBOOK_PAGE
 THREADS = SocialAccount.Platform.THREADS
 
 MSG_IMAGE_REQUIRED = "Escolha uma imagem (JPEG ou PNG)."
+MAX_ASPECT_RATIO = 10
+MSG_IMAGE_RATIO = "Para o Threads, a imagem não pode ser mais de 10 vezes mais larga que alta (nem o contrário). Escolha outra proporção."
+MSG_PUBLIC_URL = (
+    "Para enviar imagem ao Threads, o Hub precisa de um endereço público HTTPS. "
+    "Configure PUBLIC_BASE_URL (ou use um THREADS_REDIRECT_URI HTTPS) e reinicie."
+)
 
 
 class PublicationForm(forms.Form):
     """Publicação com destinos mistos (Páginas do Facebook e perfis do Threads). Ver ADR-0007.
 
-    - Imagem: obrigatória apenas se houver Página do Facebook marcada; só-Threads → opcional e ignorada.
+    - Imagem: obrigatória apenas se houver Página do Facebook marcada; com Threads marcado ela também vai ao
+      Threads (spec 0005): proporção ≤ 10:1 e endereço público HTTPS configurado.
     - Texto: até 5000; se houver Threads marcado, peso ≤ 500 e no máximo 5 links únicos.
     """
 
@@ -46,8 +54,7 @@ class PublicationForm(forms.Form):
 
     def __init__(self, *args, user, platforms=(FB, THREADS), **kwargs):
         super().__init__(*args, **kwargs)
-        self.sanitized = None  # imagem sanitizada (None quando não há Página do Facebook)
-        self.image_ignored = False  # imagem enviada, mas sem uso (só Threads)
+        self.sanitized = None  # imagem sanitizada (None quando não há imagem)
         # Só destinos ATIVOS do próprio usuário, de plataformas configuradas (outro usuário / reauth => escolha inválida).
         self.fields["accounts"].queryset = SocialAccount.objects.filter(
             owner=user, platform__in=list(platforms), status=SocialAccount.Status.ACTIVE
@@ -73,14 +80,17 @@ class PublicationForm(forms.Form):
             if count_unique_links(text) > THREADS_MAX_LINKS:
                 self.add_error("text", f"O Threads aceita no máximo {THREADS_MAX_LINKS} links diferentes.")
 
-        if FB in platforms:
-            if not upload:
-                self.add_error("image", MSG_IMAGE_REQUIRED)
+        if FB in platforms and not upload:
+            self.add_error("image", MSG_IMAGE_REQUIRED)
+        elif upload:
+            try:
+                self.sanitized = sanitize_image(upload)
+            except ImageValidationError as exc:
+                self.add_error("image", str(exc))
             else:
-                try:
-                    self.sanitized = sanitize_image(upload)
-                except ImageValidationError as exc:
-                    self.add_error("image", str(exc))
-        else:
-            self.image_ignored = bool(upload)  # só Threads: imagem não é validada, gravada nem enviada
+                if THREADS in platforms:
+                    if not self.sanitized.aspect_ratio_within(MAX_ASPECT_RATIO):
+                        self.add_error("image", MSG_IMAGE_RATIO)
+                    elif not public_url_configured():
+                        self.add_error("image", MSG_PUBLIC_URL)
         return cleaned
