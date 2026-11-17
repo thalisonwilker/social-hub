@@ -14,11 +14,14 @@ from django.db import transaction
 from django.db.models import F, Q
 from django.utils import timezone
 
+from apps.social.conf import threads_configured
 from apps.social.crypto import TokenCryptoError
 from apps.social.images import SanitizedImage
 from apps.social.models import Publication, PublicationTarget, SocialAccount
 
+from . import threads_publish, threads_tokens
 from .meta import GraphClient, MetaApiError
+from .threads import ThreadsClient
 
 logger = logging.getLogger("apps.social.meta")
 
@@ -33,6 +36,11 @@ MSG_NETWORK = "Falha de comunicação com a Meta."
 MSG_DISCONNECTED = "Conta desconectada."
 MSG_CREDENTIALS = "Não foi possível ler as credenciais desta Página. Reconecte a conta."
 MSG_IMAGE_MISSING = "A imagem da publicação não está disponível no servidor."
+MSG_THREADS_REAUTH = "Reconexão necessária para este perfil do Threads."
+MSG_THREADS_NOT_CONFIGURED = "Integração com o Threads não configurada."
+MSG_THREADS_PENDING = "O Threads ainda está processando. Tente novamente."
+MSG_THREADS_REJECTED = "O Threads recusou o conteúdo desta publicação."
+MSG_THREADS_EXPIRED = "O envio ao Threads expirou. Tente novamente."
 
 TOKEN_CODES = {102, 190}
 PERMISSION_CODES = {10, 200, 220}
@@ -52,10 +60,14 @@ class BatchResult:
 
 
 # --- criação ------------------------------------------------------------------
-def create_publication(owner, text: str, image: SanitizedImage, accounts) -> Publication:
-    """Cria a publicação, grava a imagem e um alvo `pending` por Página (uma transação)."""
-    publication = Publication(owner=owner, text=text, image_content_type=image.content_type)
-    publication.image.save(image.content.name, image.content, save=False)
+def create_publication(owner, text: str, image: SanitizedImage | None, accounts) -> Publication:
+    """Cria a publicação, grava a imagem (quando há) e um alvo `pending` por destino (uma transação).
+
+    Publicações só do Threads não têm imagem (`image=None`).
+    """
+    publication = Publication(owner=owner, text=text, image_content_type=image.content_type if image else "")
+    if image:
+        publication.image.save(image.content.name, image.content, save=False)
     try:
         with transaction.atomic():
             publication.save()
@@ -66,12 +78,14 @@ def create_publication(owner, text: str, image: SanitizedImage, accounts) -> Pub
                         account=account,
                         page_external_id=account.external_id,
                         page_name=account.name,
+                        platform=account.platform,
                     )
                     for account in accounts
                 ]
             )
     except Exception:
-        publication.image.delete(save=False)  # não deixa arquivo órfão
+        if image:
+            publication.image.delete(save=False)  # não deixa arquivo órfão
         raise
     logger.info("publication_created targets=%d", len(targets))
     return publication
@@ -95,15 +109,20 @@ def claim_target(target_id: int) -> PublicationTarget | None:
 
 
 # --- envio --------------------------------------------------------------------
-def send_pending(publication: Publication, *, client: GraphClient | None = None, batch_size: int | None = None) -> BatchResult:
-    """Envia até `batch_size` alvos pendentes/falhos. Alvos `published` nunca são tocados."""
+def send_pending(
+    publication: Publication,
+    *,
+    client: GraphClient | None = None,
+    threads_client: ThreadsClient | None = None,
+    batch_size: int | None = None,
+) -> BatchResult:
+    """Envia até `batch_size` alvos pendentes/falhos de qualquer plataforma. Alvos `published` nunca são tocados."""
     limit = batch_size or settings.PUBLISH_BATCH_SIZE
     candidates = list(
         publication.targets.filter(status__in=[S.PENDING, S.FAILED, S.SENDING]).select_related("account")
     )
     candidates.sort(key=lambda t: (t.status != S.PENDING, t.page_name, t.id))  # pendentes primeiro
 
-    client = client or GraphClient.from_settings()
     attempted = published = failed = 0
     for target in candidates:
         if attempted >= limit:
@@ -116,7 +135,13 @@ def send_pending(publication: Publication, *, client: GraphClient | None = None,
         if claimed is None:
             continue
         attempted += 1
-        if _publish_target(claimed, client):
+        if claimed.platform == SocialAccount.Platform.THREADS:
+            threads_client = threads_client or ThreadsClient.from_settings()
+            ok = _publish_threads_target(claimed, threads_client)
+        else:
+            client = client or GraphClient.from_settings()
+            ok = _publish_target(claimed, client)
+        if ok:
             published += 1
         else:
             failed += 1
@@ -147,7 +172,7 @@ def _publish_target(target: PublicationTarget, client: GraphClient) -> bool:
         return False
     except MetaApiError as exc:
         message = friendly_error(exc)
-        if exc.code in TOKEN_CODES:
+        if exc.is_token_error:
             SocialAccount.objects.filter(pk=account.pk).update(
                 status=SocialAccount.Status.NEEDS_REAUTH,
                 last_error=f"Meta erro {exc.code}",
@@ -169,6 +194,52 @@ def _publish_target(target: PublicationTarget, client: GraphClient) -> bool:
     return True
 
 
+def _publish_threads_target(target: PublicationTarget, client: ThreadsClient) -> bool:
+    """Publica o texto no Threads. Só texto: nenhuma imagem é enviada. Resultado gravado no alvo."""
+    account, publication = target.account, target.publication
+    if not threads_configured():
+        _mark_failed(target, MSG_THREADS_NOT_CONFIGURED, "not_configured")
+        return False
+    try:
+        if not threads_tokens.ensure_fresh(account, client=client):  # expirado/recusado: a conta já virou needs_reauth
+            _mark_failed(target, MSG_THREADS_REAUTH, "reauth")
+            return False
+        outcome = threads_publish.publish_text(target, client, account.get_token(), publication.text)
+    except TokenCryptoError:
+        _mark_failed(target, MSG_CREDENTIALS, "crypto")
+        return False
+    except threads_publish.ContainerNotReady:
+        _mark_failed(target, MSG_THREADS_PENDING, "container_pending")  # mantém o container para retomar
+        return False
+    except threads_publish.ContainerFailed as exc:
+        threads_publish.forget_container(target)  # próximo envio cria outro
+        message = MSG_THREADS_EXPIRED if exc.status == threads_publish.EXPIRED else MSG_THREADS_REJECTED
+        _mark_failed(target, message, exc.status.lower())
+        return False
+    except MetaApiError as exc:
+        if exc.is_token_error:
+            SocialAccount.objects.filter(pk=account.pk).update(
+                status=SocialAccount.Status.NEEDS_REAUTH,
+                last_error=f"Meta erro {exc.code or exc.status}",
+                last_checked_at=timezone.now(),
+            )
+            _mark_failed(target, MSG_THREADS_REAUTH, str(exc.code or exc.status or "unknown"))
+        else:
+            _mark_failed(target, friendly_error(exc), str(exc.code or exc.status or "unknown"))
+        return False
+
+    PublicationTarget.objects.filter(pk=target.pk).update(
+        status=S.PUBLISHED,
+        external_post_id=outcome.post_id,
+        permalink=outcome.permalink,
+        published_at=timezone.now(),
+        error_message="",
+        error_code="",
+    )
+    logger.info("publish_ok page=%s platform=threads", target.page_external_id)
+    return True
+
+
 def _mark_failed(target: PublicationTarget, message: str, code: str) -> None:
     PublicationTarget.objects.filter(pk=target.pk).update(status=S.FAILED, error_message=message, error_code=code)
     logger.warning("publish_failed page=%s code=%s", target.page_external_id, code)
@@ -180,7 +251,7 @@ def friendly_error(exc: MetaApiError) -> str:
         return MSG_REAUTH
     if code in PERMISSION_CODES:
         return MSG_PERMISSION
-    if code in RATE_LIMIT_CODES:
+    if code in RATE_LIMIT_CODES or exc.status == 429:
         return MSG_RATE_LIMIT
     if code in BLOCKED_CODES:
         return MSG_BLOCKED
