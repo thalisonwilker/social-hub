@@ -12,21 +12,27 @@ alwaysApply: false
 ## Bounded Contexts
 | Contexto   | Subdomínio (core/supporting/generic) | Responsabilidade        | Dono |
 |------------|--------------------------------------|-------------------------|------|
-| <Contexto> | core                                 | <o que ele decide>      | <time>|
+| Social (integrações) | core | Conectar e operar contas de redes sociais (Meta); guarda tokens com segurança | Thalyson |
+| Identidade (`accounts`) | generic | Autenticação e dados do usuário (Django auth) | Thalyson |
+| Painel (`dashboard`) | supporting | Visão geral e indicadores | Thalyson |
 
 ## Relações entre contextos
 > Padrões de integração DDD: Customer/Supplier, Conformist, Anti-Corruption Layer (ACL),
 > Shared Kernel, Open Host Service, Published Language.
 
 ```
-[Contexto A] ──(ACL)──► [Contexto B]
-     │
-     └──(Customer/Supplier)──► [Contexto C]
+[Meta Graph API] ──(ACL: GraphClient)──► [Social (integrações)]
+                                              │
+                      (Conformist: User FK)   ├──► [Identidade]
+                                              │
+                    (Customer/Supplier)       └──► [Painel]
 ```
 
 | Upstream   | Downstream | Padrão              | Por quê |
 |------------|------------|---------------------|---------|
-| <A>        | <B>        | Anti-Corruption Layer | <protege o modelo de B> |
+| Meta Graph API | Social | Anti-Corruption Layer | `GraphClient` protege o modelo do Hub dos formatos e versões da Meta |
+| Identidade | Social | Conformist | Social só referencia o `User` do Django por FK |
+| Social | Painel | Customer/Supplier | O Painel consulta as contas conectadas (somente leitura) |
 
 ## Diagramas
 Os diagramas de arquitetura de alto nível (contexto C4, containers, mapa de contextos) ficam em
