@@ -11,6 +11,7 @@ class SocialAccount(models.Model):
     class Platform(models.TextChoices):
         FACEBOOK_PAGE = "facebook_page", "Página do Facebook"
         THREADS = "threads", "Perfil do Threads"
+        WHATSAPP_STATUS = "whatsapp_status", "WhatsApp (Status)"
 
     class Status(models.TextChoices):
         ACTIVE = "active", "Ativa"

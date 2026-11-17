@@ -73,3 +73,23 @@ def public_base_url() -> str:
 
 def public_url_configured() -> bool:
     return bool(public_base_url())
+
+
+def evolution_base_url() -> str:
+    """Origem HTTPS da Evolution (spec 0006). Caminho, query e fragmento são descartados; vazio se inválida.
+
+    Vem SEMPRE da configuração do servidor, nunca do usuário. URL com usuário/senha embutidos é recusada.
+    """
+    from urllib.parse import urlparse
+
+    raw = (getattr(settings, "EVOLUTION_API_URL", "") or "").strip()
+    parsed = urlparse(raw)
+    if parsed.username or parsed.password or parsed.scheme != "https" or not parsed.hostname:
+        return ""
+    return _https_origin(raw)
+
+
+def evolution_configured() -> bool:
+    """True com URL HTTPS válida e chave de criptografia válida (para cifrar a chave da instância)."""
+    return bool(evolution_base_url()) and _keys_are_valid()
+
