@@ -12,6 +12,7 @@ const ROOT = resolve(process.argv[2] || ".");
 const IGNORE_DIRS = new Set([
   "node_modules", ".git", ".spec-driven",
   ".agents", ".cursor", ".gemini", ".windsurf",
+  ".agent", // espelho das skills para o Google Antigravity (cópia de .agents/skills)
 ]);
 const NO_FRONTMATTER_OK = new Set(["RELEASING.md", "CHANGELOG.md"]);
 // Arquivos de instruções gerados (fora de um dir próprio) que também são views derivadas.
@@ -56,6 +57,8 @@ const files = walk(ROOT).filter((f) => !isGenerated(f));
 // 1) Frontmatter + dialeto
 for (const f of files) {
   if (NO_FRONTMATTER_OK.has(f.split(/[\\/]/).pop())) continue;
+  // README.md da raiz é o README do projeto (vitrine no GitHub): sem frontmatter.
+  if (relative(ROOT, f).replace(/\\/g, "/") === "README.md") continue;
   const text = readFileSync(f, "utf8");
   const fm = parseFrontmatter(text);
   if (!fm) { err(f, "sem frontmatter"); continue; }
