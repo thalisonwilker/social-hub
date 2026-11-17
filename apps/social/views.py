@@ -69,7 +69,8 @@ class FacebookCallbackView(View):
 
         try:
             result = facebook_connect.fetch_pages(request.session, code)
-        except (MetaApiError, TokenCryptoError):
+        except (MetaApiError, TokenCryptoError) as exc:
+            logger.warning("oauth_failed reason=%s", type(exc).__name__)
             messages.error(request, MSG_META_FAILURE)
             return redirect("social:accounts")
 
