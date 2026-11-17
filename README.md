@@ -4,7 +4,7 @@ Plataforma web para centralizar o gerenciamento e a publicação de conteúdos e
 
 > **Estado atual:** estrutura base, autenticação, dashboard (dados **demonstrativos**), infraestrutura Docker,
 > **integração com Páginas do Facebook** (conectar, listar, verificar e desconectar), **publicação de texto + imagem
-> em uma ou várias Páginas** e **Threads** (conectar perfil e publicar texto, junto ou separado do Facebook).
+> em uma ou várias Páginas** e **Threads** (conectar perfil e publicar texto e imagem, junto ou separado do Facebook).
 > Agendamento e insights reais **ainda não** foram implementados.
 
 ## Stack
@@ -138,11 +138,12 @@ motivo do erro) e você pode **tentar de novo só as que falharam**. Detalhes: `
 - **Limitação conhecida:** se o servidor cair exatamente entre a Meta publicar e o Hub registrar o resultado, o reenvio
   (após 5 min) pode duplicar o post. Tratamento em [issue #1](https://github.com/thalisonwilker/social-hub/issues/1).
 
-## Threads (perfil + texto)
+## Threads (perfil + texto + imagem)
 
-Conecta um perfil do Threads (login próprio) e publica **texto** nele — sozinho ou **junto com Páginas do Facebook** no mesmo
-formulário. No Threads vai **só o texto** (até 500 de "peso": emoji contam por bytes; no máximo 5 links diferentes); a imagem é
-obrigatória apenas se houver Página do Facebook marcada. Detalhes: `specs/0004-threads-conectar-e-publicar/`.
+Conecta um perfil do Threads (login próprio) e publica **texto e imagem** nele — sozinho ou **junto com Páginas do Facebook** no mesmo
+formulário. O texto vai até 500 de "peso" (emoji contam por bytes; no máximo 5 links diferentes); a imagem é obrigatória apenas se
+houver Página do Facebook marcada e, quando existe, **vai também ao Threads** (proporção até 10:1). Detalhes:
+`specs/0004-threads-conectar-e-publicar/` e `specs/0005-threads-imagem/`.
 
 ### Configurar o app na Meta
 1. No app, adicione o caso de uso **Acessar a API do Threads** e, em *Permissões e recursos*, `threads_basic` e `threads_content_publish`.
@@ -156,6 +157,18 @@ obrigatória apenas se houver Página do Facebook marcada. Detalhes: `specs/0004
 `THREADS_APP_ID`, `THREADS_APP_SECRET`, `THREADS_REDIRECT_URI` (HTTPS, idêntica à da Meta), `THREADS_GRAPH_VERSION` (`v1.0`),
 `THREADS_REFRESH_WINDOW_DAYS` (`30`) e `THREADS_CONTAINER_WAIT_SECONDS` (`20`). Sem as três primeiras o Threads fica
 desabilitado e o Facebook não é afetado.
+
+### Imagem no Threads: endereço público
+A Threads API não recebe upload: a **Meta baixa a imagem de uma URL pública**. O Hub serve a imagem numa **URL temporária e assinada**
+(`/publico/imagem.jpg?t=…`, validade de 30 min, só enquanto o envio ao Threads está em andamento, sem login, sem cache) e a entrega ao
+Threads. Por isso o Hub precisa estar **alcançável pela internet em HTTPS** quando houver imagem para o Threads:
+- `PUBLIC_BASE_URL` (ex.: `https://hub.exemplo.com`): endereço público HTTPS. Se vazio, usa a origem do `THREADS_REDIRECT_URI`.
+  Sem endereço público HTTPS o formulário recusa imagem com Threads (texto e Facebook seguem normais).
+- O host público precisa estar em `DJANGO_ALLOWED_HOSTS` e o proxy/túnel deve permitir `GET`/`HEAD` anônimos em `/publico/imagem.*`.
+- Se a Meta não conseguir processar a imagem, o alvo do Threads **falha** (nunca vira só texto) e dá para **Tentar novamente**;
+  cada nova tentativa gera uma URL nova. O Gunicorn registra só o caminho (sem a query com o token): `docker/gunicorn.conf.py`.
+- Variáveis: `THREADS_IMAGE_URL_TTL_SECONDS` (`1800`), `THREADS_IMAGE_WAIT_SECONDS` (`60`) e `PUBLISH_REQUEST_BUDGET_SECONDS` (`150`, deve ficar
+  abaixo do `--timeout` do Gunicorn). O tempo da requisição manda: alvos que não couberem ficam pendentes (**Continuar envio**).
 
 ### Desenvolvimento: túnel HTTPS
 A Meta exige HTTPS no redirect do Threads, então em desenvolvimento use um túnel (exemplo sem instalar nada, com Docker):
@@ -176,7 +189,7 @@ docker run --rm --name social-hub-tunnel cloudflare/cloudflared:latest tunnel --
 ### Tokens e limites
 - O token do Threads vale **60 dias**. Ele é renovado **ao publicar ou ao Verificar** quando faltar menos de 30 dias; sem uso por mais de
   60 dias a conta passa a "Reconexão necessária" e basta **Reconectar**.
-- Limite da Meta: 250 publicações por 24 h por perfil. Imagem, vídeo e respostas no Threads ainda não existem.
+- Limite da Meta: 250 publicações por 24 h por perfil. Vídeo, carrossel e respostas no Threads ainda não existem.
 - Os callbacks de **desinstalação** e **exclusão de dados** ainda não são tratados (exigidos para o modo Live da Meta).
 
 ## Configuração (variáveis de ambiente)
@@ -194,7 +207,10 @@ docker run --rm --name social-hub-tunnel cloudflare/cloudflared:latest tunnel --
 | `GUNICORN_WORKERS` | `2` | Workers do Gunicorn |
 | `META_*` | — | Integração com o Facebook (veja a seção acima) |
 | `THREADS_*` | — | Integração com o Threads (veja a seção acima) |
-| `PUBLISH_BATCH_SIZE` | `5` | Páginas enviadas por requisição de publicação |
+| `PUBLISH_BATCH_SIZE` | `5` | Teto de alvos enviados por requisição de publicação |
+| `PUBLIC_BASE_URL` | — | Endereço público HTTPS do Hub (imagem no Threads); vazio = origem do redirect do Threads |
+| `PUBLISH_REQUEST_BUDGET_SECONDS` | `150` | Orçamento de tempo de uma requisição de envio |
+| `THREADS_IMAGE_*` | — | Validade da URL (`..._URL_TTL_SECONDS`) e espera do container (`..._WAIT_SECONDS`) |
 | `MEDIA_ROOT` | `/media` (Docker) | Pasta das imagens de publicação |
 
 ## Manutenção
@@ -222,4 +238,4 @@ docker compose cp web:/data/backup.sqlite3 ./backup.sqlite3
 
 ## Próximas etapas
 
-Agendamento (exige fila/worker), insights reais na dashboard, imagem no Threads (exige URL pública) e Instagram — todos no app `social`.
+Agendamento (exige fila/worker), insights reais na dashboard e Instagram — todos no app `social`.

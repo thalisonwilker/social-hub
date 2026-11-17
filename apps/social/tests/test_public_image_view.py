@@ -1,4 +1,5 @@
 import logging
+import unittest
 from pathlib import Path
 from unittest import mock
 
@@ -182,6 +183,7 @@ class GunicornLogTests(TestCase):
         self.assertIn("/publico/imagem.jpg", line)
         self.assertNotIn("SEGREDO123", line)
 
+    @unittest.skipUnless((ROOT / "Dockerfile").exists(), "Dockerfile não está na imagem (.dockerignore); checado fora do container")
     def test_AC_10_dockerfile_uses_the_gunicorn_config(self):
         """AC-10: a imagem Docker inicia o Gunicorn com o arquivo de configuração."""
         self.assertIn("docker/gunicorn.conf.py", (ROOT / "Dockerfile").read_text())
