@@ -1,0 +1,55 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="mb-4"><a href="{% url 'social:posts' %}" class="text-xs font-medium text-accent hover:underline">← Voltar às publicações</a></div>
+
+<div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+  <section class="card p-5 lg:col-span-1" aria-label="Conteúdo">
+    <img src="{% url 'social:post_image' publication.pk %}" alt="Imagem da publicação" class="mb-4 w-full rounded border border-line object-cover">
+    <p class="whitespace-pre-line break-words">{{ publication.text }}</p>
+    <p class="mt-4 text-xs text-muted">Criada em {{ publication.created_at|date:"d/m/Y H:i" }}</p>
+    <p class="mt-2">
+      <span class="badge {% if publication.status == 'published' %}badge-ok{% elif publication.status == 'failed' %}badge-danger{% else %}badge-warn{% endif %}">{{ publication.status_label }}</span>
+    </p>
+  </section>
+
+  <section class="card lg:col-span-2" aria-label="Resultado por Página">
+    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4">
+      <div>
+        <h2 class="card-title">Resultado por Página</h2>
+        <p class="text-xs text-muted">{{ counts.published }} publicada(s) · {{ counts.failed }} com falha · {{ counts.pending }} pendente(s){% if counts.sending %} · {{ counts.sending }} enviando{% endif %}</p>
+      </div>
+      {% if can_send %}
+      <form method="post" action="{% url 'social:post_send' publication.pk %}" data-confirm="{{ confirm_message }}" data-disable-on-submit>
+        {% csrf_token %}
+        <button type="submit" class="btn btn-primary">
+          <i data-lucide="refresh-cw" class="h-4 w-4"></i>{% if has_failed %}Tentar novamente{% else %}Continuar envio{% endif %}
+        </button>
+      </form>
+      {% endif %}
+    </div>
+
+    <ul class="divide-y divide-line">
+      {% for target in targets %}
+      <li class="flex flex-wrap items-center gap-3 px-5 py-3">
+        <div class="min-w-0 flex-1">
+          <p class="truncate font-medium">{{ target.page_name }}</p>
+          {% if target.status == 'failed' %}
+            <p class="text-xs text-danger">{{ target.error_message }}</p>
+          {% elif target.status == 'published' %}
+            <p class="text-xs text-muted">Publicado em {{ target.published_at|date:"d/m/Y H:i" }}</p>
+          {% elif target.status == 'sending' %}
+            <p class="text-xs text-muted">Envio em andamento…</p>
+          {% else %}
+            <p class="text-xs text-muted">Aguardando envio</p>
+          {% endif %}
+        </div>
+        <span class="badge {% if target.status == 'published' %}badge-ok{% elif target.status == 'failed' %}badge-danger{% else %}badge-warn{% endif %}">{{ target.get_status_display }}</span>
+        {% if target.status == 'published' and target.permalink %}
+          <a href="{{ target.permalink }}" target="_blank" rel="noopener noreferrer" class="btn"><i data-lucide="external-link" class="h-4 w-4"></i>Ver post</a>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+</div>
+{% endblock %}
