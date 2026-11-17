@@ -5,7 +5,10 @@ from apps.social.services import threads_tokens
 
 from . import demo
 
-PLATFORM_NAMES = {SocialAccount.Platform.FACEBOOK_PAGE: "Facebook"}
+PLATFORM_NAMES = {
+    SocialAccount.Platform.FACEBOOK_PAGE: "Facebook",
+    SocialAccount.Platform.THREADS: "Threads",
+}
 
 
 class DashboardView(TemplateView):
