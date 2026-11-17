@@ -23,6 +23,7 @@ alwaysApply: false
 ```
 [Meta Graph API]    ──(ACL: GraphClient)────►  [Social (integrações)]
 [Threads Graph API] ──(ACL: ThreadsClient)──►  [Social (integrações)]
+[Evolution API]     ──(ACL: EvolutionClient)►  [Social (integrações)]
                                               │
                       (Conformist: User FK)   ├──► [Identidade]
                                               │
@@ -32,6 +33,7 @@ alwaysApply: false
 | Upstream   | Downstream | Padrão              | Por quê |
 |------------|------------|---------------------|---------|
 | Buscador de mídia da Meta | Social | Open Host Service (mínimo, somente leitura) | Única rota anônima de mídia: `GET/HEAD /publico/imagem.*` com token assinado de validade curta (ADR-0008) |
+| Evolution API (WhatsApp, Baileys) | Social | Anti-Corruption Layer | `EvolutionClient` isola o host fixo, a chave por instância e o formato do Status (instância do operador, não oficial; ADR-0010) |
 | Threads Graph API | Social | Anti-Corruption Layer | `ThreadsClient` isola host, tokens que expiram e o protocolo de container do Threads |
 | Meta Graph API | Social | Anti-Corruption Layer | `GraphClient` protege o modelo do Hub dos formatos e versões da Meta |
 | Identidade | Social | Conformist | Social só referencia o `User` do Django por FK |
