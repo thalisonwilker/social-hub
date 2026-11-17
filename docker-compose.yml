@@ -10,12 +10,15 @@ services:
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.prod
       DATABASE_PATH: /data/db.sqlite3
+      MEDIA_ROOT: /media
       # SQLite aceita bem poucos workers; ajuste conforme a necessidade.
-      GUNICORN_CMD_ARGS: "--workers ${GUNICORN_WORKERS:-2} --access-logfile - --error-logfile -"
+      # --timeout 180: um lote de publicação (5 uploads de até 30 s) pode passar dos 30 s padrão.
+      GUNICORN_CMD_ARGS: "--workers ${GUNICORN_WORKERS:-2} --timeout 180 --access-logfile - --error-logfile -"
     ports:
       - "${WEB_PORT:-8000}:8000"
     volumes:
       - sqlite_data:/data
+      - media_data:/media
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8000/healthz/', timeout=3)"]
       interval: 30s
@@ -25,3 +28,4 @@ services:
 
 volumes:
   sqlite_data:
+  media_data:

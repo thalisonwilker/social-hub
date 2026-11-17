@@ -30,8 +30,8 @@ COPY --from=assets /build/static/dist ./static/dist
 
 # Usuário sem privilégios; /data guarda o SQLite (montado como volume).
 RUN useradd --system --uid 10001 --home-dir /app app \
-    && mkdir -p /data \
-    && chown app:app /data \
+    && mkdir -p /data /media \
+    && chown app:app /data /media \
     && chmod +x docker/entrypoint.sh \
     # SECRET_KEY temporária apenas para o collectstatic durante o build.
     && DJANGO_SECRET_KEY="build-only-$(head -c 32 /dev/urandom | base64 | tr -dc A-Za-z0-9)" \
@@ -39,7 +39,7 @@ RUN useradd --system --uid 10001 --home-dir /app app \
 
 USER app
 EXPOSE 8000
-VOLUME ["/data"]
+VOLUME ["/data", "/media"]
 
 ENTRYPOINT ["/app/docker/entrypoint.sh"]
 CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000"]

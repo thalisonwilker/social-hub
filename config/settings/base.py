@@ -97,6 +97,14 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
+# Publicações: imagens enviadas ficam em MEDIA_ROOT (volume persistente) e NÃO têm URL pública
+# (MEDIA_URL não é definido); são entregues por view autenticada. Ver ADR-0005.
+MEDIA_ROOT = Path(os.environ.get("MEDIA_ROOT", str(BASE_DIR / "media")))
+PUBLISH_BATCH_SIZE = int(os.environ.get("PUBLISH_BATCH_SIZE", "5"))
+PUBLICATION_MAX_IMAGE_BYTES = 8 * 1024 * 1024
+PUBLICATION_MAX_IMAGE_PIXELS = 40_000_000
+PUBLICATION_MAX_TEXT_LENGTH = 5000
+
 # Integração com a Meta (Facebook). Se faltar algo, a feature fica desabilitada (apps.social.conf).
 META_APP_ID = os.environ.get("META_APP_ID", "")
 META_APP_SECRET = os.environ.get("META_APP_SECRET", "")
@@ -106,6 +114,7 @@ META_GRAPH_VERSION = os.environ.get("META_GRAPH_VERSION", "v27.0")
 # Uma ou mais chaves Fernet separadas por vírgula (a primeira criptografa; todas descriptografam).
 META_TOKEN_ENCRYPTION_KEY = os.environ.get("META_TOKEN_ENCRYPTION_KEY", "")
 META_HTTP_TIMEOUT = 10  # segundos, por chamada à Graph API
+META_UPLOAD_TIMEOUT = 30  # segundos, por upload de imagem (lote de 5 => 150 s < Gunicorn --timeout 180)
 
 LOGIN_URL = "accounts:login"
 LOGIN_REDIRECT_URL = "dashboard:index"
