@@ -179,6 +179,6 @@ Em produção, **Publicar** só enfileira (alvos `pending`) e responde na hora; 
 - Product: [`./product.md`](./product.md)
 - Design: [`./design.md`](./design.md)
 - Domínio: [`./domain.md`](./domain.md)
-- ADRs relacionados: [0004](../../docs/architecture/adr/0004-publicacao-sincrona-em-lotes-idempotente.md) · [0007](../../docs/architecture/adr/0007-publicacao-por-plataforma-despacho-por-alvo-e-formulario-misto.md) · [0009](../../docs/architecture/adr/0009-orcamento-de-tempo-por-requisicao-de-publicacao.md) · ADR-0011 (a escrever na implementação: worker no banco, `uncertain`, recuperação sem reenvio)
+- ADRs relacionados: [0004](../../docs/architecture/adr/0004-publicacao-sincrona-em-lotes-idempotente.md) · [0007](../../docs/architecture/adr/0007-publicacao-por-plataforma-despacho-por-alvo-e-formulario-misto.md) · [0009](../../docs/architecture/adr/0009-orcamento-de-tempo-por-requisicao-de-publicacao.md) · [0011](../../docs/architecture/adr/0011-publicacao-em-segundo-plano-worker-no-banco-estado-incerto-e-recuperacao-sem-reenvio.md) (worker no banco, `uncertain`, recuperação sem reenvio)
 - Specs afetadas: [0003](../0003-publicar-no-facebook/spec.md) (envio em lote, recuperação de `sending`), [0004](../0004-threads-conectar-e-publicar/spec.md) e [0005](../0005-threads-imagem/spec.md) (orçamento/continuar envio), [0006](../0006-whatsapp-status/spec.md) (mensagem de timeout → Incerto).
 - Issues: [#1](https://github.com/thalisonwilker/social-hub/issues/1) (duplicidade) e [#4](https://github.com/thalisonwilker/social-hub/issues/4) (fila/worker).

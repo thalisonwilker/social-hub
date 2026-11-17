@@ -129,15 +129,15 @@ marque **uma ou várias Páginas** ativas e clique em *Publicar agora*. O result
 motivo do erro) e você pode **tentar de novo só as que falharam**. Detalhes: `specs/0003-publicar-no-facebook/`.
 
 - **Teste primeiro em Páginas de teste:** a publicação é real e o Hub **não** exclui nem edita posts já publicados.
-- **Lotes:** cada clique envia até 5 Páginas (`PUBLISH_BATCH_SIZE`). Com mais de 5, use **Continuar envio**.
+- **Envio em segundo plano:** em produção *Publicar* só **enfileira** e o **worker** envia (veja a seção abaixo). O lote de 5 Páginas (`PUBLISH_BATCH_SIZE`) e o **Continuar envio** valem só no modo `inline` (desenvolvimento/testes).
 - **Sem duplicar:** uma Página já publicada nunca é reenviada; cliques duplos não geram posts repetidos.
 - **Imagens:** são validadas e **re-encodadas** (metadados como localização são removidos), guardadas no volume
   `media_data` (`/media`) e entregues só ao dono, sem URL pública.
-- **Timeout:** o Gunicorn roda com `--timeout 180` (5 uploads de até 30 s por lote).
+- **Timeout:** o Gunicorn roda com `--timeout 180` (no modo `inline`, 5 uploads de até 30 s por lote); no modo `worker` a requisição responde na hora.
 - **Backup do volume de imagens:** sem ele o histórico perde as miniaturas (os posts já publicados na Meta não são afetados).
   Exemplo: `docker run --rm -v social-hub_media_data:/media -v "$PWD":/backup alpine tar czf /backup/media.tgz -C /media .`
-- **Limitação conhecida:** se o servidor cair exatamente entre a Meta publicar e o Hub registrar o resultado, o reenvio
-  (após 5 min) pode duplicar o post. Tratamento em [issue #1](https://github.com/thalisonwilker/social-hub/issues/1).
+- **Sem duplicar às cegas:** se o Hub não souber se a plataforma publicou (tempo esgotado, conexão cortada, worker reiniciado), o alvo fica **Incerto** e nunca é reenviado sozinho: veja a seção abaixo.
+
 
 ## Threads (perfil + texto + imagem)
 
@@ -215,6 +215,25 @@ formulário. Não há OAuth nem **QR** no Hub: o pareamento é feito na Evolutio
 - O host da Evolution vem **só** do servidor; o usuário nunca informa endereço. Chave, imagem e texto não vão para logs.
 - Variáveis: `EVOLUTION_API_URL` (HTTPS) e `EVOLUTION_TIMEOUT_SECONDS` (`120`; o tempo real é limitado pelo orçamento da requisição). Com muitos contatos a Evolution leva mais de 1 min para distribuir o Status.
 
+## Publicação em segundo plano (worker)
+
+Em produção o envio **não** acontece na requisição: *Publicar* cria os alvos na fila e responde na hora; um **worker** (container `worker`) os envia **um por vez**, na ordem de criação, e a página da publicação se atualiza sozinha (a cada 3 s, só enquanto há alvo na fila ou enviando).
+
+```bash
+docker compose up -d --build        # sobe web + worker
+docker compose logs -f worker       # acompanha os envios (só ids, plataforma e estado; nunca texto ou chaves)
+docker compose exec worker python manage.py worker_health   # 0 = ativo; 1 = parado (mostra a fila)
+docker compose exec worker python manage.py run_worker --once   # um ciclo manual (manutenção)
+```
+
+- **Parar com segurança:** `docker compose stop worker` envia **SIGTERM**: o worker termina o alvo em andamento e sai (o compose espera até 150 s). Uma parada forçada deixa o alvo **Incerto**.
+- **Worker parado:** os envios ficam na fila e o detalhe mostra "O envio em segundo plano não está ativo". Ao voltar, o worker retoma pela ordem de criação.
+- **Incerto:** quando a plataforma pode ter publicado mas o Hub não sabe (resposta perdida depois de enviar, worker reiniciado no meio do envio, `sending` há mais de `PUBLISH_SENDING_STALE_SECONDS`), o alvo vira **Incerto** e **nunca** volta sozinho para a fila. Confira na plataforma e escolha **Já foi publicado** (marca como publicado, sem link) ou **Reenviar** (pode duplicar o post).
+- **Tentar novamente** só reenfileira os alvos que **falharam** com certeza (recusa, reconexão necessária, conexão que nunca chegou ao servidor).
+- **Modos (`PUBLISH_MODE`):** `worker` (padrão em produção) enfileira; `inline` (padrão em desenvolvimento e nos testes) envia na requisição, com lote, orçamento de tempo e **Continuar envio**. Para voltar ao modo antigo basta definir `PUBLISH_MODE=inline` (sem migração); alvos já na fila só são enviados com `inline` ao usar *Tentar novamente*/*Continuar envio* ou com o worker ativo.
+- **Variáveis:** `PUBLISH_MODE`, `WORKER_POLL_SECONDS` (`2`: pausa sem fila), `WORKER_HEARTBEAT_STALE_SECONDS` (`180`: idade máxima da última batida para considerar o worker ativo) e `PUBLISH_SENDING_STALE_SECONDS` (`900`: tempo máximo de um alvo `sending` antes de virar Incerto).
+- **Limitações:** um worker só (um Status de 100 s atrasa os seguintes) e ainda **não** há agendamento nem consulta à plataforma para resolver o Incerto sozinho. Decisão: [ADR-0011](docs/architecture/adr/0011-publicacao-em-segundo-plano-worker-no-banco-estado-incerto-e-recuperacao-sem-reenvio.md).
+
 ## Configuração (variáveis de ambiente)
 
 | Variável | Padrão | Descrição |
@@ -231,7 +250,9 @@ formulário. Não há OAuth nem **QR** no Hub: o pareamento é feito na Evolutio
 | `META_*` | — | Integração com o Facebook (veja a seção acima) |
 | `THREADS_*` | — | Integração com o Threads (veja a seção acima) |
 | `EVOLUTION_*` | — | WhatsApp (Status) via Evolution API: `EVOLUTION_API_URL` (HTTPS) e `EVOLUTION_TIMEOUT_SECONDS` (`120`) |
-| `PUBLISH_BATCH_SIZE` | `5` | Teto de alvos enviados por requisição de publicação |
+| `PUBLISH_BATCH_SIZE` | `5` | Teto de alvos enviados por requisição de publicação (modo `inline`) |
+| `PUBLISH_MODE` | `worker` (prod) · `inline` (dev) | Onde o envio acontece: `worker` (segundo plano) ou `inline` (na requisição) |
+| `WORKER_POLL_SECONDS` · `WORKER_HEARTBEAT_STALE_SECONDS` · `PUBLISH_SENDING_STALE_SECONDS` | `2` · `180` · `900` | Pausa do worker sem fila; idade máxima da batida do worker; prazo de um alvo `sending` antes de virar Incerto |
 | `PUBLIC_BASE_URL` | — | Endereço público HTTPS do Hub (imagem no Threads); vazio = origem do redirect do Threads |
 | `PUBLISH_REQUEST_BUDGET_SECONDS` | `150` | Orçamento de tempo de uma requisição de envio |
 | `THREADS_IMAGE_*` | — | Validade da URL (`..._URL_TTL_SECONDS`) e espera do container (`..._WAIT_SECONDS`) |
@@ -262,4 +283,4 @@ docker compose cp web:/data/backup.sqlite3 ./backup.sqlite3
 
 ## Próximas etapas
 
-Agendamento (exige fila/worker), insights reais na dashboard e Instagram — todos no app `social`. Para o WhatsApp: grupos/contatos, vídeo e lista de contatos do Status.
+Agendamento (a fila/worker já existe: falta `scheduled_at` e a tela Agenda), insights reais na dashboard e Instagram — todos no app `social`. Para o WhatsApp: grupos/contatos, vídeo e lista de contatos do Status.

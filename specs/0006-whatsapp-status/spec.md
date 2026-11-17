@@ -74,11 +74,13 @@ O Hub passa a aceitar uma **instância da Evolution já pareada** como conta de 
 - **Então** o alvo fica `failed` com "Reconecte o número na Evolution", a conta passa a **Reconexão necessária** (sem chamar a Evolution quando já estava) e o reenvio só funciona depois de a conta voltar a `active`
 
 ### AC-12: Outras falhas são reenviáveis
+> **Atualizado pela [0007](../0007-publicacao-em-segundo-plano/spec.md):** o **tempo esgotado** (e a conexão cortada depois de enviar) do `sendStatus` agora leva o alvo ao estado **Incerto** ("Não foi possível confirmar se foi publicado…"), com "Já foi publicado" ou "Reenviar"; a mensagem específica de timeout desta spec foi substituída (nos dois modos, `worker` e `inline`). Os demais erros seguem como aqui.
 - **Dado** um alvo do WhatsApp
 - **Quando** a Evolution falha por tempo esgotado, erro de rede, erro 5xx, limite de requisições ou recusa do conteúdo (matriz de envio)
 - **Então** o alvo fica `failed` com mensagem **amigável** do caso (nunca o texto cru da Evolution) e código curto, a conta **não** muda de status e "Tentar novamente" o reenvia; no **tempo esgotado** a mensagem avisa que o **Status pode ter sido publicado** e manda conferir no celular antes de tentar de novo (UAT: com ~2265 contatos a Evolution concluiu depois de o Hub desistir)
 
 ### AC-13: Orçamento de tempo
+> **Atualizado pela [0007](../0007-publicacao-em-segundo-plano/spec.md):** o `min(EVOLUTION_TIMEOUT_SECONDS, orçamento restante − 25 s)` e o limite de 40 s valem só no modo `inline`; o **worker** usa `EVOLUTION_TIMEOUT_SECONDS` inteiro.
 - **Dado** a requisição de envio com orçamento (ADR-0009)
 - **Quando** há alvo do WhatsApp
 - **Então** o tempo limite da chamada é `min(EVOLUTION_TIMEOUT_SECONDS, orçamento restante − 25 s)`; com menos de 40 s restantes o alvo **não é iniciado** e continua `pending`

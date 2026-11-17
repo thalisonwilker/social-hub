@@ -44,6 +44,14 @@ Os testes não acessam a rede: a Graph API é sempre mockada (`apps/social/tests
 com Pillow em memória e gravadas em diretório temporário (`publication_helpers.py`). O gate oficial roda no
 container, que reproduz o ambiente de produção.
 
+## Worker de envio (spec 0007)
+- A suíte roda em **`PUBLISH_MODE=inline`**: o `InlinePublishRunner` (`config/test_runner.py`, `TEST_RUNNER`) força o modo porque o container de testes usa `config.settings.prod`, cujo padrão é `worker`. Testes do worker usam `override_settings(PUBLISH_MODE="worker")`.
+- O worker é testado por **`run_once()`** (um ciclo) e por `run_worker --once`, nunca por laço infinito; `run(max_cycles=N)` e o `sleep` injetado cobrem o laço, e o SIGTERM é simulado chamando o handler.
+- A reivindicação atômica é testada com **`TransactionTestCase`** e várias threads com conexões reais ao SQLite (`test_claim.py`).
+- A classificação de erros de rede também usa **sockets reais em loopback** (recusada, leitura esgotada, fechada, cortada, TLS).
+- O polling da tela tem um teste em **Node** (`node scripts/test-poll.mjs`); o Django o executa quando o Node existe (no container é pulado).
+- `README.md`, `docker-compose.yml` e `Dockerfile` ficam fora da imagem (`.dockerignore`): os testes que os leem pulam no container e rodam localmente.
+
 ## O que a CI executa
 <Pipeline em ordem: lint → análise estática → unidade → integração → aceite → cobertura (relatório).
 Mais a regra SDD: falhar PR que altera código sem spec aprovada.

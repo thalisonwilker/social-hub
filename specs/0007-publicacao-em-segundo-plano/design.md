@@ -15,7 +15,7 @@ alwaysApply: false
 |--------------------------|-------------|------|
 | Spec · Product · Domínio | repositório | `./spec.md` · `./product.md` · `./domain.md` |
 | Base                     | repositório | [ADR-0004](../../docs/architecture/adr/0004-publicacao-sincrona-em-lotes-idempotente.md) · [ADR-0007](../../docs/architecture/adr/0007-publicacao-por-plataforma-despacho-por-alvo-e-formulario-misto.md) · [ADR-0009](../../docs/architecture/adr/0009-orcamento-de-tempo-por-requisicao-de-publicacao.md) · [0006](../0006-whatsapp-status/design.md) |
-| ADR desta feature        | repositório | ADR-0011 (a escrever com a spec) |
+| ADR desta feature        | repositório | [ADR-0011](../../docs/architecture/adr/0011-publicacao-em-segundo-plano-worker-no-banco-estado-incerto-e-recuperacao-sem-reenvio.md) |
 | Issues                   | GitHub      | [#1](https://github.com/thalisonwilker/social-hub/issues/1) · [#4](https://github.com/thalisonwilker/social-hub/issues/4) |
 
 ## Contexto da funcionalidade
@@ -175,4 +175,4 @@ Ganha-se resposta imediata, ausência de duplicação silenciosa e base para age
 ## Questões em aberto
 - [ ] Graph: confirmar no UAT que um *timeout* de leitura do upload pode ter criado o post (para justificar `uncertain` no Facebook).
 - [ ] Valores de `WORKER_HEARTBEAT_STALE_SECONDS` (180) e `PUBLISH_SENDING_STALE_SECONDS` (900): ajustar após medir os maiores envios.
-- [ ] ADR-0011 (worker no banco + `uncertain` + supersede parcial do 0004/0009) — escrever com a spec.
+- [x] ADR-0011 (worker no banco + `uncertain` + supersede parcial do 0004/0009) — escrito na T7.

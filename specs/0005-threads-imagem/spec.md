@@ -87,6 +87,7 @@ Quando a publicação tem imagem, o alvo do Threads passa a enviar **imagem + te
 - **Então** o alvo fica `failed` (reenviável) com a mensagem de que o Threads ainda está processando a imagem, **nenhum** post de só texto é criado e o `external_container_id` é **mantido**
 
 ### AC-15: Retomada reutiliza o container
+> **Atualizado pela [0007](../0007-publicacao-em-segundo-plano/spec.md):** a retomada pelo container gravado continua valendo para o "Tentar novamente"/"Reenviar"; um `sending` preso **não** é mais recuperado sozinho: vira **Incerto** (0007), em ambos os modos (`worker` e `inline`).
 - **Dado** um alvo de imagem com `external_container_id` gravado (falha anterior mantida, ou `sending` preso ≥ 5 min)
 - **Quando** ele é reenviado
 - **Então** o container é **reutilizado** (nenhum novo `POST …/threads`, nenhuma nova URL gerada) e o fluxo segue na consulta de status
@@ -97,11 +98,13 @@ Quando a publicação tem imagem, o alvo do Threads passa a enviar **imagem + te
 - **Então** o container é `TEXT` (0004 AC-17), sem `image_url`, e a rota pública não é envolvida
 
 ### AC-17: Orçamento de tempo do envio
+> **Atualizado pela [0007](../0007-publicacao-em-segundo-plano/spec.md):** o orçamento por requisição (40 s) vale só no modo `inline`; o **worker** não tem orçamento e usa a espera configurada (`THREADS_IMAGE_WAIT_SECONDS`).
 - **Dado** uma requisição de envio com `PUBLISH_REQUEST_BUDGET_SECONDS` (padrão 150)
 - **Quando** restam **menos de 40 s** do orçamento antes de iniciar um novo alvo
 - **Então** esse alvo e os seguintes **não** são iniciados e permanecem `pending` ("Continuar envio"), é logado `publish_budget_exhausted remaining=N`, e os alvos já em curso terminam normalmente; o lote de `PUBLISH_BATCH_SIZE` continua sendo o teto
 
 ### AC-18: Espera limitada pelo restante do orçamento
+> **Atualizado pela [0007](../0007-publicacao-em-segundo-plano/spec.md):** a espera limitada pelo restante do orçamento vale só no modo `inline`; o **worker** espera `THREADS_IMAGE_WAIT_SECONDS` inteiro.
 - **Dado** um alvo de imagem iniciado com orçamento restante R
 - **Quando** o Hub espera o container
 - **Então** a espera é `min(THREADS_IMAGE_WAIT_SECONDS, R − 25 s)`; se o tempo acabar, vale o AC-14

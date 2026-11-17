@@ -70,6 +70,7 @@ vendo o resultado de cada Página, podendo repetir só as que falharam e consult
 - **Então** o alvo fica `failed` com a mensagem amigável correspondente (tabela do design), **sem** o texto cru da Meta e sem credenciais, e o erro é logado (`publish_failed` com Página e código)
 
 ### AC-11: Envio em lotes
+> **Atualizado pela [0007](../0007-publicacao-em-segundo-plano/spec.md):** em produção (`PUBLISH_MODE=worker`) "Publicar" só **enfileira** e o **worker** envia fora da requisição, sem lote nem orçamento; o lote de 5 e "Continuar envio" valem só no modo `inline` (dev/testes).
 - **Dado** uma publicação com mais de 5 alvos
 - **Quando** é criada ou quando o usuário aciona "Continuar envio" (`POST /publicacoes/<id>/enviar/`)
 - **Então** cada requisição envia **no máximo 5** alvos pendentes; os restantes permanecem `pending` e o detalhe indica quantos faltam
@@ -80,6 +81,7 @@ vendo o resultado de cada Página, podendo repetir só as que falharam e consult
 - **Então** só os alvos `failed` e `pending` são enviados; alvos `published` **nunca** são reenviados (nenhuma chamada à Meta para eles)
 
 ### AC-13: Concorrência e recuperação
+> **Atualizado pela [0007](../0007-publicacao-em-segundo-plano/spec.md):** o alvo `sending` **não é mais recuperado** após 5 min: o worker o leva a **Incerto** (`stale`, ou `worker_restart` na partida) e só o usuário resolve ("Já foi publicado" ou "Reenviar"). A recuperação automática, que podia duplicar o post (issue #1), deixou de existir também no modo `inline`.
 - **Dado** duas requisições simultâneas de envio para o mesmo alvo
 - **Quando** ambas tentam reivindicá-lo
 - **Então** exatamente **uma** chama a Meta (claim atômico); um alvo `sending` com menos de 5 minutos **não** é reenviado; um alvo `sending` com 5 minutos ou mais é reivindicado de novo e enviado (log `target_reclaimed`)

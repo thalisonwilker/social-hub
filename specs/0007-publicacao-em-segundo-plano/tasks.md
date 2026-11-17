@@ -23,7 +23,7 @@ alwaysApply: false
 | 4  | Worker: `run_worker` (`--once`), FIFO sem orçamento, heartbeat, recuperação na partida, *reaper* de `sending` vencido, SIGTERM gracioso, `worker_health`                              | AC-3, AC-7, AC-8, AC-15                    | 3          | `… test apps.social.tests.test_worker`                                                            | done     |
 | 5  | Views: Publicar enfileira (modo `worker`), "Tentar novamente" enfileira, **Resolver** (`publicado`/`reenviar`), `GET …/estado/` (JSON mínimo, só o dono)                              | AC-1, AC-5, AC-9, AC-10, AC-12, AC-17      | 3          | `… test apps.social.tests.test_background_views`                                                  | done     |
 | 6  | Detalhe e histórico: estados "Na fila"/"Enviando…"/"Incerto", botões do Incerto, polling de 3 s com recarga ao mudar, aviso de worker inativo, remover "Continuar envio" no modo `worker` | AC-11, AC-13, AC-14                        | 5          | `… test apps.social.tests.test_background_ui`                                                     | done     |
-| 7  | Infra e docs: serviço `worker` no `docker-compose.yml`, README, `.env.example`, **ADR-0011**, `TESTING.md`, glossário, notas de supersessão nas specs 0003–0006                       | AC-16, AC-19, AC-20                        | 4, 6       | `… test apps.social.tests.test_background_docs` + `node scripts/eval-spec-fidelity.mjs .`         | pendente |
+| 7  | Infra e docs: serviço `worker` no `docker-compose.yml`, README, `.env.example`, **ADR-0011**, `TESTING.md`, glossário, notas de supersessão nas specs 0003–0006                       | AC-16, AC-19, AC-20                        | 4, 6       | `… test apps.social.tests.test_background_docs` + `node scripts/eval-spec-fidelity.mjs .`         | done     |
 | 8  | Segurança transversal e regressão: sem segredo/texto em log/JSON/HTML, isolamento e CSRF, suíte das 0002–0006 verde em `inline`                                                      | AC-17, AC-20                               | 3, 4, 5, 6, 7 | `… test apps` (suíte completa) + `… test apps.social.tests.test_background_security`            | pendente |
 | 9  | **UAT real** com `docker compose` (web + worker): enfileirar, acompanhar, matar o worker no meio de um envio, resolver o Incerto, parar o worker (aviso), confirmar o timeout do Graph | AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-8, AC-9, AC-10, AC-11, AC-12, AC-13, AC-14, AC-15, AC-16, AC-17, AC-18, AC-19, AC-20 | 1–8 | `docker compose exec web python manage.py test` + `makemigrations --check` + auditoria (`audit-esteira`, `validate-mermaid`, `eval-spec-fidelity`) + roteiro manual | pendente |
 
@@ -46,9 +46,9 @@ alwaysApply: false
 ## Checklist de Definition of Done
 - [ ] Todos os AC verdes **pelo gate executável** (não por inspeção)
 - [ ] Nenhum `SPEC_DEVIATION` pendente
-- [ ] ADR-0011 registrado (worker no banco, `uncertain`, recuperação sem reenvio; substitui parcialmente 0004 e 0009)
+- [x] ADR-0011 registrado (worker no banco, `uncertain`, recuperação sem reenvio; substitui parcialmente 0004 e 0009)
 - [x] Glossário / context-map atualizados
-- [ ] Specs 0003–0006 com as notas de supersessão e a 0007 reflete o que foi construído
+- [x] Specs 0003–0006 com as notas de supersessão (a 0007 reflete o que foi construído após o UAT)
 - [ ] `docs/STATE.md` atualizado (próximo passo / decisões)
 - [ ] Issues #1 e #4 comentadas/fechadas com o resultado
 - [ ] Cobertura e análise estática conforme `docs/engineering/TESTING.md`

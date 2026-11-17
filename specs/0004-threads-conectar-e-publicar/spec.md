@@ -123,6 +123,7 @@ O usuário conecta um perfil do Threads (login próprio, token de 60 dias com re
 - **Então** cada alvo segue o fluxo da **sua** plataforma (Facebook: foto + texto como na 0003; Threads: texto, e **imagem + texto** quando há imagem — *atualizado pela [0005](../0005-threads-imagem/spec.md)*), o resultado é por alvo (falha parcial permitida), o lote de até 5 alvos vale para todos juntos, "Continuar envio"/"Tentar novamente" reenviam só `pending`/`failed` e o comportamento do Facebook permanece **idêntico ao da 0003**
 
 ### AC-22: Idempotência e concorrência no Threads
+> **Atualizado pela [0007](../0007-publicacao-em-segundo-plano/spec.md):** `sending` vencido (≥ 5 min) **não** é reivindicado de novo: vira **Incerto** e o container gravado é mantido para o "Reenviar" do usuário; só `pending` é reivindicado, em ambos os modos (`worker` e `inline`).
 - **Dado** o mesmo alvo do Threads
 - **Quando** duas requisições tentam enviá-lo ao mesmo tempo, ou ele já está `published`, ou `sending` há menos de 5 minutos
 - **Então** só **uma** reivindica e chama a Meta; `published` nunca é reenviado; `sending` ≥ 5 min é reivindicado de novo e retoma pelo `external_container_id` (log `target_reclaimed`)
