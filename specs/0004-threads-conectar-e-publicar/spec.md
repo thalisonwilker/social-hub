@@ -78,12 +78,12 @@ O usuário conecta um perfil do Threads (login próprio, token de 60 dias com re
 ### AC-13: Formulário com destinos mistos
 - **Dado** um usuário com Páginas do Facebook e perfis do Threads
 - **Quando** abre `/publicacoes/nova/`
-- **Então** vê os destinos **ativos** agrupados por plataforma (rótulo/ícone), com caixas de seleção e "Marcar todas"; contas em "Reconexão necessária" aparecem desabilitadas com o aviso; a tela explica as regras ("Imagem obrigatória se marcar uma Página do Facebook · no Threads vai só o texto, até 500")
+- **Então** vê os destinos **ativos** agrupados por plataforma (rótulo/ícone), com caixas de seleção e "Marcar todas"; contas em "Reconexão necessária" aparecem desabilitadas com o aviso; a tela explica as regras ("Imagem obrigatória se marcar uma Página do Facebook · no Threads vai junto com o texto, até 500 — *0005*")
 
 ### AC-14: Imagem condicional
 - **Dado** um formulário
 - **Quando** há **Página do Facebook** marcada, **então** a imagem é obrigatória e validada/sanitizada como na 0003 (ausente ou inválida → erro, nada criado)
-- **Quando** só há **perfis do Threads** marcados, **então** a imagem é opcional e, se enviada, é **ignorada** (não é validada, nem gravada, nem enviada) com o aviso "No Threads, apenas o texto é publicado"; a publicação é criada sem imagem
+- **Quando** só há **perfis do Threads** marcados, **então** a imagem é opcional; se enviada, é validada e gravada e **vai ao Threads junto com o texto** (*atualizado pela [0005](../0005-threads-imagem/spec.md): antes era ignorada, com o aviso "No Threads, apenas o texto é publicado", que deixou de existir*)
 
 ### AC-15: Limites do texto por destino
 - **Dado** um formulário com texto
@@ -98,7 +98,7 @@ O usuário conecta um perfil do Threads (login próprio, token de 60 dias com re
 ### AC-17: Publicar texto no Threads
 - **Dado** um alvo do Threads reivindicado para envio
 - **Quando** ele é enviado
-- **Então** a renovação é avaliada (AC-12); é criado o container (`POST /v1.0/{user_id}/threads`, `media_type=TEXT`, `text` no corpo) e o `id` é **gravado** no alvo (`external_container_id`); o Hub consulta o status do container até `FINISHED` (limite `THREADS_CONTAINER_WAIT_SECONDS`, padrão 20 s); publica (`POST /v1.0/{user_id}/threads_publish` com `creation_id`); lê o `permalink` (melhor esforço); o alvo fica `published` com `external_post_id` e link, e **nenhuma imagem é enviada**
+- **Então** a renovação é avaliada (AC-12); é criado o container (`POST /v1.0/{user_id}/threads`, `media_type=TEXT`, `text` no corpo) e o `id` é **gravado** no alvo (`external_container_id`); o Hub consulta o status do container até `FINISHED` (limite `THREADS_CONTAINER_WAIT_SECONDS`, padrão 20 s); publica (`POST /v1.0/{user_id}/threads_publish` com `creation_id`); lê o `permalink` (melhor esforço); o alvo fica `published` com `external_post_id` e link. **Vale para publicações sem imagem:** com imagem o container é `IMAGE` (*atualizado pela [0005](../0005-threads-imagem/spec.md)*)
 
 ### AC-18: Container que não fica pronto
 - **Dado** um alvo do Threads
@@ -118,7 +118,7 @@ O usuário conecta um perfil do Threads (login próprio, token de 60 dias com re
 ### AC-21: Alvos mistos
 - **Dado** uma publicação com Páginas do Facebook **e** perfis do Threads
 - **Quando** é enviada
-- **Então** cada alvo segue o fluxo da **sua** plataforma (Facebook: foto + texto como na 0003; Threads: só texto), o resultado é por alvo (falha parcial permitida), o lote de até 5 alvos vale para todos juntos, "Continuar envio"/"Tentar novamente" reenviam só `pending`/`failed` e o comportamento do Facebook permanece **idêntico ao da 0003**
+- **Então** cada alvo segue o fluxo da **sua** plataforma (Facebook: foto + texto como na 0003; Threads: texto, e **imagem + texto** quando há imagem — *atualizado pela [0005](../0005-threads-imagem/spec.md)*), o resultado é por alvo (falha parcial permitida), o lote de até 5 alvos vale para todos juntos, "Continuar envio"/"Tentar novamente" reenviam só `pending`/`failed` e o comportamento do Facebook permanece **idêntico ao da 0003**
 
 ### AC-22: Idempotência e concorrência no Threads
 - **Dado** o mesmo alvo do Threads
@@ -210,7 +210,7 @@ O usuário conecta um perfil do Threads (login próprio, token de 60 dias com re
 
 ## Fora de escopo
 > Vinculante. Não implemente nada aqui.
-- Imagem, vídeo, carrossel, GIF e enquete no Threads; respostas, menções, insights e `topic_tag`/`link_attachment`.
+- ~~Imagem~~ (entregue pela [0005](../0005-threads-imagem/spec.md)), vídeo, carrossel, GIF e enquete no Threads; respostas, menções, insights e `topic_tag`/`link_attachment`.
 - Instagram.
 - Agendamento, fila/worker e renovação de token em segundo plano.
 - Perfis privados do Threads.

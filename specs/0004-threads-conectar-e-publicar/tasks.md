@@ -43,7 +43,7 @@ alwaysApply: false
 - **UAT manual (task 12), com o túnel ativo e acessando o Hub pela URL do túnel:**
   1. Conectar o perfil de teste do Threads (testador aceito, perfil público).
   2. Publicar um **texto só no Threads**; conferir o post no Threads e o link.
-  3. Publicar **Facebook + Threads** juntos (com imagem); conferir que o Threads recebe só texto.
+  3. Publicar **Facebook + Threads** juntos (com imagem); conferir que o Threads recebe só texto (a partir da 0005 recebe imagem + texto).
   4. Forçar uma falha (ex.: desconectar antes de enviar) e **tentar de novo**.
   5. Tentar `th_exchange_token`/`th_refresh_token` por **POST** e **Bearer** nos GETs e registrar o que a Meta aceita.
   6. Medir o tempo do container de texto até `FINISHED` e anotar os códigos de erro reais (token inválido, limite).

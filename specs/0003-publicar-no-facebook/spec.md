@@ -37,7 +37,7 @@ vendo o resultado de cada Página, podendo repetir só as que falharam e consult
 - **Então** o formulário é reexibido com o erro, o conteúdo digitado é mantido, e **nada** é criado nem enviado
 
 ### AC-5: Validação da imagem
-> **Atualizado pela [0004](../0004-threads-conectar-e-publicar/spec.md) (AC-14):** a imagem é obrigatória **apenas quando há Página do Facebook entre os destinos**; publicação só no Threads não exige imagem e a ignora.
+> **Atualizado pela [0004](../0004-threads-conectar-e-publicar/spec.md) (AC-14):** a imagem é obrigatória **apenas quando há Página do Facebook entre os destinos**; publicação só no Threads não exige imagem e, se houver, ela vai ao Threads (*[0005](../0005-threads-imagem/spec.md)*).
 - **Dado** um formulário com **ao menos uma Página do Facebook** marcada
 - **Quando** a imagem está ausente, não é uma imagem de verdade (ex.: `.jpg` com conteúdo de outro tipo), não é JPEG/PNG (ex.: GIF, WebP, SVG), passa de 8 MiB ou excede 40 milhões de pixels
 - **Então** o formulário é reexibido com o erro apropriado e **nada** é criado nem enviado
