@@ -2,8 +2,9 @@
 
 Plataforma web para centralizar o gerenciamento e a publicação de conteúdos em redes sociais (Facebook, Instagram e Threads).
 
-> **Estado atual (etapa 1):** estrutura base, autenticação, dashboard com dados **demonstrativos** e infraestrutura Docker.
-> Integrações com a Meta, publicação e agendamento **ainda não** foram implementadas.
+> **Estado atual:** estrutura base, autenticação, dashboard (dados **demonstrativos**), infraestrutura Docker e a
+> **integração com Páginas do Facebook** (conectar, listar, verificar e desconectar).
+> Publicação, agendamento e insights reais **ainda não** foram implementados.
 
 ## Stack
 
@@ -70,7 +71,7 @@ apps/
   core/                 Healthcheck, navegação da sidebar, view de páginas reservadas
   accounts/             Login, logout, perfil, troca de senha, comando ensure_admin
   dashboard/            Dashboard (dados fictícios em demo.py)
-  social/               Reservado para as integrações (contas, publicações, agenda)
+  social/               Integração com a Meta: contas conectadas, OAuth, cliente Graph API, criptografia de tokens
 templates/              layout.html (sidebar + header + conteúdo), partials, páginas
 frontend/               Fonte do Tailwind (input.css, tailwind.config.js) e cópia de vendors
 static/js/app.js        Tema claro/escuro, menu mobile e Lucide
@@ -86,6 +87,39 @@ Decisões relevantes:
 - **Tema** por variáveis CSS (`frontend/input.css`); o modo escuro só troca valores, e a escolha fica em `localStorage`.
 - **Navegação** em um único lugar: `apps/core/context_processors.py`.
 
+## Integração com o Facebook (Páginas)
+
+Permite que cada usuário conecte sua conta Meta, **escolha uma ou várias Páginas** e as gerencie em *Contas conectadas*.
+Os tokens de Página ficam **criptografados** (Fernet) no SQLite. Detalhes: `specs/0002-facebook-page-connect/`.
+
+### Configurar o app na Meta
+1. Em [Meta for Developers](https://developers.facebook.com), crie um app com o caso de uso **Gerenciar tudo na sua Página**.
+2. Em **Casos de uso → Personalizar**, adicione `pages_show_list`, `pages_read_engagement`, `pages_manage_posts` e `read_insights`.
+3. Em **Login do Facebook para Empresas → Configurações**: ative *Login OAuth do cliente/da Web* e cadastre em
+   *URIs de redirecionamento válidos* o valor de `META_REDIRECT_URI`.
+4. Em **Login do Facebook para Empresas → Configurações → Criar configuração**: token de acesso do usuário e as
+   permissões acima. Copie o **ID da configuração** (`META_LOGIN_CONFIG_ID`).
+5. Em **Configurações do app → Básico**, copie **App ID** e **Chave Secreta**.
+6. Enquanto o app estiver em modo *Desenvolvimento*, só contas com função no app conseguem autorizar.
+
+### Variáveis no `.env`
+`META_APP_ID`, `META_APP_SECRET`, `META_LOGIN_CONFIG_ID`, `META_REDIRECT_URI` (idêntica à cadastrada na Meta),
+`META_GRAPH_VERSION` (padrão `v27.0`) e `META_TOKEN_ENCRYPTION_KEY`. Gere a chave com:
+
+```bash
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+Sem essas variáveis o sistema sobe normalmente e *Contas conectadas* mostra "Integração com a Meta não configurada".
+
+### Operação e segurança
+- **Faça backup da `META_TOKEN_ENCRYPTION_KEY`** separado do banco. Sem ela os tokens ficam ilegíveis (a recuperação é reconectar).
+- **Rotação da chave:** coloque a nova **primeiro**, separada por vírgula da antiga (`NOVA,ANTIGA`); depois que todas as
+  contas forem reconectadas/regravadas, remova a antiga.
+- Se o **App Secret** vazar, redefina-o no painel da Meta e atualize o `.env`.
+- Desconectar uma Página apaga o token só no Social Hub; para revogar de vez, remova o app em *Configurações do Facebook → Integrações*.
+- Em produção o `META_REDIRECT_URI` precisa ser **HTTPS** (`DJANGO_SECURE_SSL=true` atrás de um proxy com TLS).
+
 ## Configuração (variáveis de ambiente)
 
 | Variável | Padrão | Descrição |
@@ -99,6 +133,7 @@ Decisões relevantes:
 | `DJANGO_SUPERUSER_*` | — | Admin criado no start se ainda não existir |
 | `WEB_PORT` | `8000` | Porta publicada no host |
 | `GUNICORN_WORKERS` | `2` | Workers do Gunicorn |
+| `META_*` | — | Integração com o Facebook (veja a seção acima) |
 
 ## Manutenção
 
@@ -125,4 +160,4 @@ docker compose cp web:/data/backup.sqlite3 ./backup.sqlite3
 
 ## Próximas etapas
 
-Modelos de contas/publicações, OAuth e Graph API da Meta, publicação, agendamento e fila (a definir) — todos no app `social`.
+Insights reais na dashboard, publicação e agendamento, e as integrações com Instagram e Threads — todos no app `social`.

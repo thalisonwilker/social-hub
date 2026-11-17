@@ -13,12 +13,12 @@ alwaysApply: false
 ## Como rodar
 | Nível         | Comando                   | Quando |
 |---------------|---------------------------|--------|
-| Unidade       | `<comando>`               | sempre, rápido |
-| Integração    | `<comando>`               | adapters / repos / contratos |
-| Aceite (UAT)  | `<comando>`               | um teste por `AC-N` da spec |
-| Lint / format    | `<comando>`               | pré-commit / CI |
-| Análise estática | `<comando>` (type-check, complexidade, SAST) | CI — sem findings bloqueantes |
-| Cobertura        | `<comando>` (mín. `<X>%`, gera relatório) | CI — relatório anexado ao PR |
+| Unidade       | `docker compose run --rm --build web python manage.py test apps` | sempre; rápido, sem rede (Graph API mockada) |
+| Integração    | `docker compose run --rm --build web python manage.py test apps.social.tests.test_facebook_connect` | serviços com banco e sessão reais |
+| Aceite (UAT)  | `docker compose run --rm --build web python manage.py test apps.social` | um teste `test_AC_N_*` por critério da spec |
+| Lint / format    | _(não configurado)_       | pendência: adotar ruff |
+| Análise estática | `python manage.py check` · `python manage.py makemigrations --check --dry-run` | CI — sem findings bloqueantes (SAST pendente) |
+| Cobertura        | _(não configurado)_       | pendência: `coverage` com mínimo definido |
 
 ## Convenções
 - Pirâmide: muitos testes de unidade, menos de integração, poucos de aceite.
@@ -34,6 +34,14 @@ alwaysApply: false
 - Uma **feature** só faz merge quando todos os AC estão verdes + lint + **análise estática limpa**
   (sem findings bloqueantes) + cobertura mínima.
 - A **CI roda exatamente estes comandos** — falhar bloqueia o merge.
+
+## Ambiente local sem Docker (iteração rápida)
+```bash
+python -m venv .venv && .venv/bin/pip install -r requirements.txt
+.venv/bin/python manage.py test apps          # usa config.settings.dev
+```
+Os testes não acessam a rede: a Graph API é sempre mockada (`apps/social/tests/helpers.py`). O gate oficial roda no
+container, que reproduz o ambiente de produção.
 
 ## O que a CI executa
 <Pipeline em ordem: lint → análise estática → unidade → integração → aceite → cobertura (relatório).
