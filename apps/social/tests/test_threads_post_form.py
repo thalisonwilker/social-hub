@@ -216,3 +216,17 @@ class MixedFormTests(PublicationTestMixin, TestCase):
         PublicationTarget.objects.update(permalink="")
         pub = Publication.objects.get()
         self.assertContains(self.client.get(reverse("social:post_detail", args=[pub.pk])), "link indisponível")
+
+
+class Spec0003UpdatedTests(TestCase):
+    def test_AC_27_spec_0003_records_the_changes_made_by_this_feature(self):
+        """AC-27: a spec 0003 registra o AC-1 (destinos mistos) e o AC-5 (imagem só com Página do Facebook)."""
+        from django.conf import settings
+
+        spec = (settings.BASE_DIR / "specs" / "0003-publicar-no-facebook" / "spec.md").read_text(encoding="utf-8")
+        ac1 = spec[spec.index("### AC-1:"):spec.index("### AC-2:")]
+        ac5 = spec[spec.index("### AC-5:"):spec.index("### AC-6:")]
+        self.assertIn("perfis do Threads", ac1)
+        self.assertIn("0004", ac1)
+        self.assertIn("apenas quando há Página do Facebook", ac5)
+        self.assertIn("0004", ac5)

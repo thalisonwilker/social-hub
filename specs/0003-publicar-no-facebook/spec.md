@@ -16,9 +16,10 @@ vendo o resultado de cada Página, podendo repetir só as que falharam e consult
 ## Critérios de aceite
 
 ### AC-1: Formulário e seleção de Páginas
+> **Atualizado pela [0004](../0004-threads-conectar-e-publicar/spec.md) (AC-13):** a lista de destinos passou a incluir também os **perfis do Threads**, agrupados por plataforma.
 - **Dado** um usuário com Páginas conectadas
 - **Quando** abre `/publicacoes/nova/`
-- **Então** vê os campos de texto e imagem e a lista das suas Páginas **ativas** com caixas de seleção e um controle "Marcar todas"; contas em "Reconexão necessária" aparecem desabilitadas com o aviso e o link para reconectar; o botão de publicar pede confirmação ("Será publicado de verdade nas Páginas selecionadas") e fica desabilitado após o envio do formulário
+- **Então** vê os campos de texto e imagem e a lista dos seus destinos **ativos** (Páginas do Facebook e, desde a 0004, perfis do Threads) com caixas de seleção e um controle "Marcar todas"; contas em "Reconexão necessária" aparecem desabilitadas com o aviso e o link para reconectar; o botão de publicar pede confirmação ("Será publicado de verdade nas Páginas selecionadas") e fica desabilitado após o envio do formulário
 
 ### AC-2: Sem Páginas ativas ou integração não configurada
 - **Dado** que o usuário não tem Página ativa, **ou** que a integração com a Meta não está configurada
@@ -36,7 +37,8 @@ vendo o resultado de cada Página, podendo repetir só as que falharam e consult
 - **Então** o formulário é reexibido com o erro, o conteúdo digitado é mantido, e **nada** é criado nem enviado
 
 ### AC-5: Validação da imagem
-- **Dado** um formulário
+> **Atualizado pela [0004](../0004-threads-conectar-e-publicar/spec.md) (AC-14):** a imagem é obrigatória **apenas quando há Página do Facebook entre os destinos**; publicação só no Threads não exige imagem e a ignora.
+- **Dado** um formulário com **ao menos uma Página do Facebook** marcada
 - **Quando** a imagem está ausente, não é uma imagem de verdade (ex.: `.jpg` com conteúdo de outro tipo), não é JPEG/PNG (ex.: GIF, WebP, SVG), passa de 8 MiB ou excede 40 milhões de pixels
 - **Então** o formulário é reexibido com o erro apropriado e **nada** é criado nem enviado
 
@@ -118,7 +120,7 @@ vendo o resultado de cada Página, podendo repetir só as que falharam e consult
 ## Matriz de decisão
 
 ### Criação (`POST /publicacoes/nova/`)
-| Texto (1–5000)  | Imagem válida (JPEG/PNG, ≤ 8 MiB, ≤ 40 MP) | Páginas marcadas                                  | Resultado esperado                                          | AC   |
+| Texto (1–5000)  | Imagem válida (JPEG/PNG, ≤ 8 MiB, ≤ 40 MP) — exigida com Página do Facebook | Páginas marcadas                | Resultado esperado                                          | AC   |
 |-----------------|---------------------------------------------|---------------------------------------------------|-------------------------------------------------------------|------|
 | inválido        | —                                           | —                                                 | Erro no texto; nada criado nem enviado                      | AC-4 |
 | válido          | não                                         | —                                                 | Erro na imagem; nada criado nem enviado                     | AC-5 |
@@ -159,7 +161,7 @@ vendo o resultado de cada Página, podendo repetir só as que falharam e consult
 - Página sem a tarefa de criar conteúdo: **sem pré-checagem**; a Meta recusa e o alvo mostra a mensagem de permissão.
 
 ## Fora de escopo
-> Vinculante. Não implemente nada aqui.
+> Vinculante. Não implemente nada aqui. (A publicação **só de texto no Facebook** continua fora do escopo; o Threads, por ser só texto, é tratado na [0004](../0004-threads-conectar-e-publicar/spec.md).)
 - Agendamento, fila/worker e execução em background.
 - Rascunhos; editar ou excluir o post na Meta; excluir publicação do histórico.
 - Mais de uma imagem, vídeo, publicação só de texto.

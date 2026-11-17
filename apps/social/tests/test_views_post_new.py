@@ -29,6 +29,7 @@ class PostNewTests(PublicationTestMixin, TestCase):
 
     # ---- AC-1 / AC-2 -----------------------------------------------------
     def test_AC_1_form_lists_active_pages_and_flags_reauth_ones(self):
+        """AC-1 (atualizado pela 0004): destinos ativos listados (aqui, só Páginas) e contas em reauth desabilitadas."""
         active = self.make_accounts(2)
         stale = self.make_accounts(1, status=SocialAccount.Status.NEEDS_REAUTH, start=3)[0]
         response = self.client.get(reverse(NEW))
@@ -107,6 +108,7 @@ class PostNewTests(PublicationTestMixin, TestCase):
 
     # ---- AC-5 ------------------------------------------------------------
     def test_AC_5_invalid_images_are_rejected(self):
+        """AC-5 (atualizado pela 0004): com Página do Facebook marcada a imagem é obrigatória e validada."""
         accounts = self.make_accounts(1)
         gif = make_upload("a.gif", "image/gif", fmt="GIF")
         fake = SimpleUploadedFile("falsa.jpg", b"nao sou uma imagem", content_type="image/jpeg")
