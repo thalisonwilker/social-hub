@@ -38,13 +38,13 @@
       {% if account.picture_url %}
         <img src="{{ account.picture_url }}" alt="" class="h-11 w-11 rounded border border-line object-cover" referrerpolicy="no-referrer">
       {% else %}
-        <span class="flex h-11 w-11 items-center justify-center rounded border border-line bg-surface-2 text-muted"><i data-lucide="flag" class="h-5 w-5"></i></span>
+        <span class="flex h-11 w-11 items-center justify-center rounded border border-line bg-surface-2 text-muted"><i data-lucide="{% if account.platform == 'threads' %}at-sign{% else %}flag{% endif %}" class="h-5 w-5"></i></span>
       {% endif %}
 
       <div class="min-w-0 flex-1">
         <p class="truncate font-medium">{{ account.name }}</p>
         <p class="truncate text-xs text-muted">
-          {{ account.get_platform_display }}{% if account.category %} · {{ account.category }}{% endif %} · conectada em {{ account.connected_at|date:"d/m/Y" }}
+          {{ account.get_platform_display }}{% if account.username %} · @{{ account.username }}{% elif account.category %} · {{ account.category }}{% endif %} · conectada em {{ account.connected_at|date:"d/m/Y" }}{% if account.token_expires_at %} · token expira em {{ account.days_until_token_expiry }} dia(s){% endif %}
         </p>
       </div>
 
@@ -52,10 +52,17 @@
 
       <div class="flex gap-2">
         {% if account.needs_reauth %}
+        {% if account.platform == 'threads' %}
+        <form method="post" action="{% url 'social:threads_connect' %}">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-primary" {% if not threads_configured %}disabled{% endif %}><i data-lucide="refresh-cw" class="h-4 w-4"></i>Reconectar</button>
+        </form>
+        {% else %}
         <form method="post" action="{% url 'social:facebook_connect' %}">
           {% csrf_token %}
           <button type="submit" class="btn btn-primary" {% if not configured %}disabled{% endif %}><i data-lucide="refresh-cw" class="h-4 w-4"></i>Reconectar</button>
         </form>
+        {% endif %}
         {% endif %}
         <form method="post" action="{% url 'social:account_check' account.pk %}">
           {% csrf_token %}

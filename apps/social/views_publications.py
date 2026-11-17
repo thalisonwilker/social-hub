@@ -11,7 +11,7 @@ from django.views.generic import TemplateView
 from .conf import meta_configured
 from .forms import PublicationForm
 from .models import Publication, SocialAccount
-from .services import publishing
+from .services import publishing, threads_tokens
 
 logger = logging.getLogger("apps.social.meta")
 
@@ -58,6 +58,7 @@ class PostNewView(View):
     template_name = "social/post_form.html"
 
     def _all_accounts(self, request):
+        threads_tokens.expire_stale_tokens(request.user)  # contas com token vencido não podem ser alvo
         return SocialAccount.objects.filter(owner=request.user, platform=SocialAccount.Platform.FACEBOOK_PAGE)
 
     def _blocked_reason(self, request):

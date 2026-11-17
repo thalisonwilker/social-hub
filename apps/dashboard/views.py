@@ -1,6 +1,7 @@
 from django.views.generic import TemplateView
 
 from apps.social.models import SocialAccount
+from apps.social.services import threads_tokens
 
 from . import demo
 
@@ -12,6 +13,7 @@ class DashboardView(TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        threads_tokens.expire_stale_tokens(self.request.user)
         active = SocialAccount.objects.filter(
             owner=self.request.user, status=SocialAccount.Status.ACTIVE
         ).values_list("platform", flat=True)

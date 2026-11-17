@@ -12,6 +12,8 @@ from .conf import meta_configured, threads_configured
 from .crypto import TokenCryptoError
 from .services import facebook_connect
 from .models import SocialAccount
+from .services import threads_tokens
+from .services.threads import ThreadsClient
 from .services.meta import GraphClient, MetaApiError
 
 logger = logging.getLogger("apps.social.meta")
@@ -133,6 +135,7 @@ class AccountsView(TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        threads_tokens.expire_stale_tokens(self.request.user)  # validade local, sem rede
         context.update(
             page_title="Contas conectadas",
             configured=meta_configured(),
@@ -152,10 +155,31 @@ class AccountActionView(View):
 
 
 class AccountCheckView(AccountActionView):
-    """Testa o token da Página (`GET /{page_id}`) e atualiza o status."""
+    """Testa a conta (Facebook: `GET /{page_id}`; Threads: renova se devido e lê o perfil) e atualiza o status."""
+
+    MSG_CANNOT_CHECK = "Não foi possível verificar agora. Tente novamente em instantes."
 
     def post(self, request, pk):
         account = self.get_account(request, pk)
+        if account.platform == SocialAccount.Platform.THREADS:
+            return self._check_threads(request, account)
+        return self._check_facebook(request, account)
+
+    def _save(self, account, **fields):
+        for name, value in fields.items():
+            setattr(account, name, value)
+        account.last_checked_at = timezone.now()
+        account.save(update_fields=[*fields, "last_checked_at", "updated_at"])
+
+    def _needs_reauth(self, request, account, code):
+        self._save(account, status=SocialAccount.Status.NEEDS_REAUTH, last_error=f"Meta erro {code}")
+        messages.warning(request, f"Reconexão necessária para “{account.name}”.")
+
+    def _ok(self, request, account):
+        self._save(account, status=SocialAccount.Status.ACTIVE, last_error="")
+        messages.success(request, f"“{account.name}” está conectada e funcionando.")
+
+    def _check_facebook(self, request, account):
         if not meta_configured():
             messages.error(request, MSG_NOT_CONFIGURED)
             return redirect("social:accounts")
@@ -163,23 +187,36 @@ class AccountCheckView(AccountActionView):
             GraphClient.from_settings().get_page(account.external_id, account.get_token())
         except MetaApiError as exc:
             if exc.is_token_error:
-                account.status = SocialAccount.Status.NEEDS_REAUTH
-                account.last_error = f"Meta erro {exc.code}"
-                account.last_checked_at = timezone.now()
-                account.save(update_fields=["status", "last_error", "last_checked_at", "updated_at"])
-                messages.warning(request, f"Reconexão necessária para “{account.name}”.")
+                self._needs_reauth(request, account, exc.code)
             else:
-                messages.error(request, "Não foi possível verificar agora. Tente novamente em instantes.")
+                messages.error(request, self.MSG_CANNOT_CHECK)
             return redirect("social:accounts")
         except TokenCryptoError:
-            messages.error(request, "Não foi possível verificar agora. Tente novamente em instantes.")
+            messages.error(request, self.MSG_CANNOT_CHECK)
             return redirect("social:accounts")
+        self._ok(request, account)
+        return redirect("social:accounts")
 
-        account.status = SocialAccount.Status.ACTIVE
-        account.last_error = ""
-        account.last_checked_at = timezone.now()
-        account.save(update_fields=["status", "last_error", "last_checked_at", "updated_at"])
-        messages.success(request, f"“{account.name}” está conectada e funcionando.")
+    def _check_threads(self, request, account):
+        if not threads_configured():
+            messages.error(request, "Integração com o Threads não configurada.")
+            return redirect("social:accounts")
+        client = ThreadsClient.from_settings()
+        try:
+            if not threads_tokens.ensure_fresh(account, client=client):  # expirado ou token recusado na renovação
+                messages.warning(request, f"Reconexão necessária para “{account.name}”.")
+                return redirect("social:accounts")
+            client.get_profile(account.external_id, account.get_token())
+        except MetaApiError as exc:
+            if exc.is_token_error:
+                self._needs_reauth(request, account, exc.code)
+            else:
+                messages.error(request, self.MSG_CANNOT_CHECK)
+            return redirect("social:accounts")
+        except TokenCryptoError:
+            messages.error(request, self.MSG_CANNOT_CHECK)
+            return redirect("social:accounts")
+        self._ok(request, account)
         return redirect("social:accounts")
 
 

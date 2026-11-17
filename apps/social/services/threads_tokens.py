@@ -63,3 +63,13 @@ def ensure_fresh(account: SocialAccount, *, client: ThreadsClient | None = None,
     account.save(update_fields=["access_token_enc", "token_expires_at", "token_refreshed_at", "last_error", "updated_at"])
     logger.info("threads_token_refreshed account=%s", account.pk)
     return True
+
+
+def expire_stale_tokens(user) -> int:
+    """Marca `needs_reauth` as contas do Threads ativas cujo token já passou da validade. Só consulta o banco (sem rede)."""
+    return SocialAccount.objects.filter(
+        owner=user,
+        platform=SocialAccount.Platform.THREADS,
+        status=SocialAccount.Status.ACTIVE,
+        token_expires_at__lte=timezone.now(),
+    ).update(status=SocialAccount.Status.NEEDS_REAUTH, last_error="Token do Threads expirado")
