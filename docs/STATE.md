@@ -15,7 +15,8 @@ alwaysApply: true
 ## Em andamento / próximo passo
 > O que está aberto agora e a **próxima ação concreta** (não "continuar a feature" — diga o passo).
 - Feature ativa: `specs/0005-threads-imagem/` — implementada (tasks 1–9, 371 testes verdes); falta o **UAT real** (task 10).
-- Para o UAT: subir um **túnel novo** (a URL muda), atualizar `THREADS_REDIRECT_URI` no `.env` e a URL de callback na Meta, recriar o container
+- **UAT da imagem (2026-11-17): OK** — Facebook + Threads com imagem 2/2 publicados (1ª tentativa falhou com o túnel recém-criado; reenvio funcionou). Falta só a falha forçada + Tentar novamente (túnel fora) e fechar o túnel.
+- (feito) Para o UAT: subir um **túnel novo** (a URL muda), atualizar `THREADS_REDIRECT_URI` no `.env` e a URL de callback na Meta, recriar o container
   (`docker compose up -d --force-recreate`), publicar `exemplos/teste-publicacao.jpg` no Threads (e no Facebook), forçar uma falha (túnel fora) e **Tentar novamente**.
   Responder as questões abertas na [issue #5](https://github.com/thalisonwilker/social-hub/issues/5). Fechar o túnel ao terminar.
 - Pendências de UAT das 0003/0004 (links abrem, Tentar novamente, POST/Bearer nos tokens do Threads); depois marcar as specs 0003, 0004 e 0005 como `implementado`.

@@ -41,6 +41,9 @@ alwaysApply: false
 - 2026-11-17 · testes/mídia · Teste que grava arquivo sem `MEDIA_ROOT` temporário suja o volume real (já aconteceu na 0003) · todo teste de mídia usa diretório temporário; conferir `find media -type f` após rodar a suíte.
 - 2026-11-17 · Docker/túnel · O túnel (`docker run --rm`) morre se o Docker Desktop parar, e o container do Hub volta sozinho mas o túnel não · reiniciar o túnel e atualizar a URL na Meta/`.env`.
 
+- 2026-11-17 · Threads/imagem · A Meta baixa a imagem DURANTE a criação do container (POST fica ~4 s aberto; UA `facebookexternalhit`, só GET) e o container de imagem ficou `FINISHED` em ~3,7 s · o Gunicorn precisa de ≥ 2 workers (um espera a Meta, o outro serve a imagem).
+- 2026-11-17 · Threads/túnel · Com o hostname do túnel recém-criado (~2 min) a 1ª criação de container de imagem falhou (`code=1 subcode=2207052`); reenviar funcionou · depois de subir um túnel, esperar alguns minutos antes de publicar imagem.
+
 ## Promovidas (histórico curto)
 > Rastro de para onde foram as lições podadas — só o link, sem reexplicar. Poda este histórico também.
 - <YYYY-MM-DD: "<lição>" → [ADR-NNNN](architecture/adr/NNNN-*.md) / glossary / CLAUDE.md>
