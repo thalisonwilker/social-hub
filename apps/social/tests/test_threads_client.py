@@ -115,6 +115,24 @@ class ThreadsClientTests(SimpleTestCase):
         self.assertNotIn(TEXT, url)
         self.assertNotIn(LONG, url)
 
+    def test_AC_11_create_image_container_posts_image_url_text_and_token_in_the_body(self):
+        """AC-11: container IMAGE por POST /v1.0/{user_id}/threads com image_url, text e access_token só no corpo."""
+        client, session = make_client(FakeResponse({"id": "container-img"}))
+        image_url = "https://hub.exemplo.com/publico/imagem.jpg?t=SEGREDO"
+        self.assertEqual(client.create_image_container("123", LONG, TEXT, image_url), "container-img")
+        (method, url), kwargs = last(session)
+        self.assertEqual((method, url), ("POST", "https://graph.threads.com/v1.0/123/threads"))
+        self.assertEqual(kwargs["data"], {"media_type": "IMAGE", "image_url": image_url, "text": TEXT, "access_token": LONG})
+        self.assertIsNone(kwargs.get("params"))
+        for secret in (TEXT, LONG, "SEGREDO"):
+            self.assertNotIn(secret, url)
+
+    def test_AC_11_image_container_without_id_is_an_error(self):
+        """AC-11: resposta sem id é erro sanitizado."""
+        client, _ = make_client(FakeResponse({}))
+        with self.assertRaises(MetaApiError):
+            client.create_image_container("123", LONG, "x", "https://h/publico/imagem.jpg?t=1")
+
     def test_AC_17_container_status_publish_and_permalink(self):
         """AC-17: status por GET, publicação por POST com creation_id, permalink por GET."""
         client, session = make_client(

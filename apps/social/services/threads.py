@@ -124,6 +124,18 @@ class ThreadsClient(BaseGraphClient):
         )
         return self._require_id(data, f"{user_id}/threads")
 
+    def create_image_container(self, user_id: str, token: str, text: str, image_url: str) -> str:
+        """Container IMAGE: a Meta baixa a imagem de `image_url` (URL pública assinada do Hub, spec 0005).
+
+        Tudo no corpo do POST (inclusive a URL com o token da imagem); nada disso é registrado em log.
+        """
+        data = self._request(
+            "POST",
+            f"{user_id}/threads",
+            data={"media_type": "IMAGE", "image_url": image_url, "text": text, "access_token": token},
+        )
+        return self._require_id(data, f"{user_id}/threads")
+
     def container_status(self, container_id: str, token: str) -> dict:
         data = self._request(
             "GET", container_id, params={"fields": "status,error_message", "access_token": token}
