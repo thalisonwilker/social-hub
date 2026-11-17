@@ -12,7 +12,7 @@ alwaysApply: false
 ## Bounded Contexts
 | Contexto   | Subdomínio (core/supporting/generic) | Responsabilidade        | Dono |
 |------------|--------------------------------------|-------------------------|------|
-| Social (integrações) | core | Conectar e operar contas de redes sociais (Meta); guarda tokens com segurança | Thalyson |
+| Social (integrações) | core | Conectar e operar contas de redes sociais (Meta, Threads, WhatsApp); guarda tokens com segurança; publica em segundo plano por um worker (processo do mesmo contexto, 0007) | Thalyson |
 | Identidade (`accounts`) | generic | Autenticação e dados do usuário (Django auth) | Thalyson |
 | Painel (`dashboard`) | supporting | Visão geral e indicadores | Thalyson |
 
