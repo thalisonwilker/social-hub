@@ -97,6 +97,16 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
+# Integração com a Meta (Facebook). Se faltar algo, a feature fica desabilitada (apps.social.conf).
+META_APP_ID = os.environ.get("META_APP_ID", "")
+META_APP_SECRET = os.environ.get("META_APP_SECRET", "")
+META_LOGIN_CONFIG_ID = os.environ.get("META_LOGIN_CONFIG_ID", "")
+META_REDIRECT_URI = os.environ.get("META_REDIRECT_URI", "")
+META_GRAPH_VERSION = os.environ.get("META_GRAPH_VERSION", "v27.0")
+# Uma ou mais chaves Fernet separadas por vírgula (a primeira criptografa; todas descriptografam).
+META_TOKEN_ENCRYPTION_KEY = os.environ.get("META_TOKEN_ENCRYPTION_KEY", "")
+META_HTTP_TIMEOUT = 10  # segundos, por chamada à Graph API
+
 LOGIN_URL = "accounts:login"
 LOGIN_REDIRECT_URL = "dashboard:index"
 LOGOUT_REDIRECT_URL = "accounts:login"
@@ -117,4 +127,6 @@ LOGGING = {
     "formatters": {"simple": {"format": "%(asctime)s %(levelname)s %(name)s: %(message)s"}},
     "handlers": {"console": {"class": "logging.StreamHandler", "formatter": "simple"}},
     "root": {"handlers": ["console"], "level": os.environ.get("DJANGO_LOG_LEVEL", "INFO")},
+    # urllib3 em DEBUG registra URLs completas; mantém em WARNING para não vazar nada.
+    "loggers": {"urllib3": {"level": "WARNING"}},
 }
