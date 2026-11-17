@@ -26,7 +26,7 @@ alwaysApply: false
 | 7  | Destinos mistos (Facebook + Threads + WhatsApp), histórico/detalhe ("Status do WhatsApp", "link indisponível"), notas de supersessão nas specs 0003/0004; suíte existente verde | AC-10, AC-15                                          | 4, 5, 6    | `… test apps` + `node scripts/eval-spec-fidelity.mjs .`                                   | done     |
 | 8  | Segurança transversal: chave/base64/texto fora de logs, HTML, mensagens e exceções; host só do servidor; nome de instância hostil rejeitado; isolamento entre usuários  | AC-14, AC-16                                          | 3, 5, 7    | `… test apps.social.tests.test_evolution_security`                                        | done     |
 | 9  | Documentação: ADR-0010, README (aviso Baileys, chave da instância), `TESTING.md`, `STATE.md`, `lessons.md`, `.env.example`                                             | AC-17                                                 | 1–8        | `… test apps.social.tests.test_evolution_docs` + `node scripts/validate-mermaid.mjs .` | done     |
-| 10 | **Contrato real + UAT:** fixar corpo/base64/JID/estado na sua instância (versão), ajustar o cliente, publicar texto e imagem num número de teste, forçar falha e Tentar novamente | AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-8, AC-9, AC-10, AC-11, AC-12, AC-13, AC-14, AC-15, AC-16, AC-17 | 1–9 | `docker compose exec web python manage.py test` + `makemigrations --check` + auditoria (`audit-esteira`, `validate-mermaid`, `eval-spec-fidelity`) + roteiro manual | pendente |
+| 10 | **Contrato real + UAT:** fixar corpo/base64/JID/estado na sua instância (versão), ajustar o cliente, publicar texto e imagem num número de teste, forçar falha e Tentar novamente | AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-8, AC-9, AC-10, AC-11, AC-12, AC-13, AC-14, AC-15, AC-16, AC-17 | 1–9 | `docker compose exec web python manage.py test` + `makemigrations --check` + auditoria (`audit-esteira`, `validate-mermaid`, `eval-spec-fidelity`) + roteiro manual | done     |
 
 > Ordem sugerida: 1 → 2 → 3 → (4, 5) → 6 → 7 → 8 → 9 → 10. As tasks 4 e 5 só dependem da 3; a 6 pode andar junto da 7.
 > Uma task só vira `done` quando o **gate passa** — não por inspeção. Um commit por task.
@@ -42,13 +42,13 @@ alwaysApply: false
 
 ## Divergências (SPEC_DEVIATION)
 > Se a implementação precisar fugir da spec, registre aqui antes de seguir (ver `CLAUDE.md`).
-- Nenhuma até agora.
+- Nenhuma. Ajuste consciente da spec após o UAT: AC-12 e a matriz de envio ganharam a mensagem própria do timeout, e o timeout padrão passou a 120 s (ver ADR-0010).
 
 ## Checklist de Definition of Done
-- [ ] Todos os AC verdes **pelo gate executável** (não por inspeção)
-- [ ] Nenhum `SPEC_DEVIATION` pendente
+- [x] Todos os AC verdes **pelo gate executável** (não por inspeção) — 496 testes no Docker
+- [x] Nenhum `SPEC_DEVIATION` pendente
 - [x] ADR-0010 registrado (credenciais por instância, host fixo, Baileys)
 - [x] Glossário / context-map atualizados
-- [ ] Specs 0003/0004 com a nota de supersessão e 0006 reflete o que foi construído
-- [ ] `docs/STATE.md` atualizado (próximo passo / decisões)
-- [ ] Cobertura e análise estática conforme `docs/engineering/TESTING.md`
+- [x] Specs 0003/0004 com a nota de supersessão e 0006 reflete o que foi construído (AC-12 ajustado após o UAT)
+- [x] `docs/STATE.md` atualizado (próximo passo / decisões)
+- [ ] Cobertura e análise estática conforme `docs/engineering/TESTING.md` — pendência do projeto (coverage/ruff ainda não configurados; `check` e `makemigrations --check` verdes)

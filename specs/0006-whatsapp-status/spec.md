@@ -6,10 +6,10 @@ alwaysApply: true
 
 # Spec — WhatsApp: publicar no Status via Evolution API
 
-> **Fonte da verdade.** Status: rascunho
+> **Fonte da verdade.** Status: implementado (UAT real em 2026-11-17 na Evolution 2.3.7)
 > Os critérios de aceite são (a) o contrato com o negócio, (b) o oráculo de teste,
 > (c) o prompt para o agente de IA implementar. Os `AC-N` desta spec são numerados a partir de 1 (independentes das anteriores).
-> **Atenção:** o formato exato do corpo da Evolution **não está confirmado** (ver design). Esta spec descreve **comportamento**; o corpo é fixado na task de UAT.
+> **Contrato confirmado no UAT (Evolution 2.3.7):** corpo plano em `POST /message/sendStatus/{instância}`; texto exige `backgroundColor` e `font`; imagem vai como **data URI** (base64 puro é lido como caminho de arquivo). Esta spec descreve **comportamento**; o corpo fica isolado em `EvolutionClient`.
 
 ## Resumo
 O Hub passa a aceitar uma **instância da Evolution já pareada** como conta de WhatsApp (nome da instância + chave, cifrada; host só do servidor) e a publicar o **Status do WhatsApp**

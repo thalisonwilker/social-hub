@@ -14,7 +14,7 @@ alwaysApply: true
 
 ## Em andamento / próximo passo
 > O que está aberto agora e a **próxima ação concreta** (não "continuar a feature" — diga o passo).
-- Feature ativa: `specs/0006-whatsapp-status/` — tasks 1–9 implementadas (488+ testes verdes); falta a **task 10**: fixar o contrato do Status lendo a **sua Evolution** (versão, corpo, base64, estado) e o **UAT real** num número de teste (publicar texto e imagem, forçar falha e Tentar novamente).
+- Feature ativa: nenhuma. `specs/0006-whatsapp-status/` **implementada** (tasks 1–10, 496 testes verdes) com UAT real na Evolution 2.3.7: cadastro, falha + Tentar novamente e envio real (texto e imagem em data URI) funcionaram. Aprendizados: timeout não é falha (a Evolution concluiu depois e o reenvio duplicou o Status; ~2265 contatos), `allContacts` = contatos que a Evolution conhece (não a agenda). Pendências: apagar o Status duplicado de teste pelo celular; fila/idempotência para o WhatsApp (issues #1 e #4).
 - Antes: `specs/0005-threads-imagem/` — implementada; UAT da imagem OK (falta só a falha forçada + Tentar novamente com o túnel fora).
 - **UAT da imagem (2026-11-17): OK** — Facebook + Threads com imagem 2/2 publicados (1ª tentativa falhou com o túnel recém-criado; reenvio funcionou). Falta só a falha forçada + Tentar novamente (túnel fora) e fechar o túnel.
 - (feito) Para o UAT: subir um **túnel novo** (a URL muda), atualizar `THREADS_REDIRECT_URI` no `.env` e a URL de callback na Meta, recriar o container
