@@ -188,13 +188,34 @@ def process_target(
     claimed = claim_target(target_id)
     if claimed is None:
         return None
+    return dispatch_claimed(claimed, pool, threads_max_wait=threads_max_wait, evolution_timeout=evolution_timeout)
+
+
+def dispatch_claimed(
+    claimed: PublicationTarget, pool: ClientPool, *, threads_max_wait: float | None = None, evolution_timeout: float | None = None
+) -> str:
+    """Envia um alvo JÁ reivindicado (`sending`) pela sua plataforma e devolve o estado final gravado."""
     if claimed.platform == SocialAccount.Platform.THREADS:
         _publish_threads_target(claimed, pool.threads(), max_wait=threads_max_wait)
     elif claimed.platform == SocialAccount.Platform.WHATSAPP_STATUS:
         _publish_whatsapp_target(claimed, pool.evolution(), timeout=evolution_timeout)
     else:
         _publish_target(claimed, pool.graph())
-    return PublicationTarget.objects.filter(pk=target_id).values_list("status", flat=True).first()
+    return PublicationTarget.objects.filter(pk=claimed.pk).values_list("status", flat=True).first()
+
+
+def mark_disconnected(target: PublicationTarget) -> None:
+    """Alvo sem conta (desconectada): `failed` sem chamar a plataforma (não reenviável)."""
+    if not (target.status == S.FAILED and target.error_message == MSG_DISCONNECTED):
+        _mark_failed(target, MSG_DISCONNECTED, "disconnected")
+
+
+def mark_unexpected_error(target_id: int) -> None:
+    """Exceção inesperada depois da reivindicação: não se sabe se a plataforma chegou a publicar → Incerto (`worker_error`)."""
+    PublicationTarget.objects.filter(pk=target_id, status=S.SENDING).update(
+        status=S.UNCERTAIN, error_message=MSG_UNCERTAIN, error_code="worker_error"
+    )
+    logger.warning("target_uncertain reason=worker_error n=1")
 
 
 # --- envio na requisição (modo inline) ------------------------------------------
@@ -226,8 +247,7 @@ def send_pending(
         if attempted >= limit:
             break
         if target.account_id is None:  # conta desconectada: falha sem chamar a plataforma
-            if not (target.status == S.FAILED and target.error_message == MSG_DISCONNECTED):
-                _mark_failed(target, MSG_DISCONNECTED, "disconnected")
+            mark_disconnected(target)
             continue
         remaining_time = budget - (clock() - started_at)
         if remaining_time < MIN_SECONDS_TO_START_TARGET:

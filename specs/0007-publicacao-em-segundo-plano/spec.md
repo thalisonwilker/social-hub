@@ -162,6 +162,7 @@ Em produção, **Publicar** só enfileira (alvos `pending`) e responde na hora; 
 - **Conta desconectada com alvo `pending`:** o worker o marca `failed` como hoje ("Conta desconectada"), sem chamar a plataforma.
 - **Imagem ausente do disco:** `failed` como hoje, sem chamar a plataforma.
 - **`database is locked`:** o worker repete no ciclo seguinte; nenhuma transição é perdida (as transições são atômicas).
+- **Exceção inesperada no worker** (bug) depois da reivindicação: o alvo vira Incerto (`error_code=worker_error`) — não se sabe se a plataforma chegou a publicar — e o worker **continua**; o log traz só o tipo da exceção, nunca a mensagem.
 - **SIGKILL no meio do envio:** na partida seguinte o alvo vira `uncertain` (AC-7); o usuário decide.
 - **Fila grande/envio lento:** um Status lento atrasa os seguintes (um worker, sequencial) — aceito.
 - **Publicação mista com um alvo incerto:** os outros alvos seguem normalmente; o geral fica "Com falhas" se houver `failed`, senão "Incerta".
