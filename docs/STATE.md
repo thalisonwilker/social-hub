@@ -14,10 +14,12 @@ alwaysApply: true
 
 ## Em andamento / próximo passo
 > O que está aberto agora e a **próxima ação concreta** (não "continuar a feature" — diga o passo).
-- Feature ativa: `specs/0004-threads-conectar-e-publicar/` — implementada (tasks 1–11); falta o **UAT real** (e o da 0003, ainda pendente).
-- Próximo passo: com o túnel ativo, acessar o Hub pela URL do túnel e rodar o UAT do Threads: conectar o perfil de teste → publicar **só texto** →
-  publicar **Facebook + Threads** → forçar uma falha e **tentar de novo**. Registrar: se a Meta aceita **POST** em `th_exchange_token`/`th_refresh_token` e **Bearer**
-  nos GETs, o tempo do container de texto e os códigos de erro reais. Depois marcar a spec 0004 como `implementado`.
+- Feature ativa: `specs/0004-threads-conectar-e-publicar/` — implementada (tasks 1–11); **UAT feito em parte** (2026-11-17).
+- UAT já confirmado: conectar o perfil do Threads pelo túnel; publicação mista #3 (2 Páginas do Facebook + 1 perfil do Threads), 3/3 `published` com link,
+  em ~15 s; o Threads recebeu só o texto (por spec); container de texto `FINISHED` em ~220 ms. A 0003 também publicou (#1 e #2).
+- Falta confirmar: se os links dos posts abrem; **forçar uma falha e Tentar de novo**; e testar **POST** em `th_exchange_token`/`th_refresh_token` e **Bearer** nos GETs
+  (ainda não testados). Depois marcar as specs 0003 e 0004 como `implementado`.
+- Próxima feature candidata: **0005 — imagem no Threads** (exige URL pública temporária assinada e um ADR; hoje é non-goal).
 
 ## Decisões recentes
 > Resumo cronológico. Se for difícil de reverter, vire um ADR e linke aqui.
