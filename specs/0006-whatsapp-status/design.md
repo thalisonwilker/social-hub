@@ -15,7 +15,7 @@ alwaysApply: false
 |--------------------------|-------------|--------------------------------------------------------------|
 | Spec · Product · Domínio | repositório | `./spec.md` · `./product.md` · `./domain.md`                 |
 | Base                     | repositório | [0004](../0004-threads-conectar-e-publicar/design.md) · [0005](../0005-threads-imagem/design.md) · [ADR-0007](../../docs/architecture/adr/0007-publicacao-por-plataforma-despacho-por-alvo-e-formulario-misto.md) · [ADR-0009](../../docs/architecture/adr/0009-orcamento-de-tempo-por-requisicao-de-publicacao.md) |
-| ADR desta feature        | repositório | ADR-0010 (a escrever junto da spec)                          |
+| ADR desta feature        | repositório | [ADR-0010](../../docs/architecture/adr/0010-whatsapp-status-via-evolution-api-instancia-chave-cifrada-e-host-fixo.md) |
 
 ## Contexto da funcionalidade
 O Hub publica por **plataforma** (despacho por alvo, ADR-0007): Facebook (Graph) e Threads (cliente próprio). O operador tem uma **Evolution API**
@@ -141,4 +141,4 @@ Dívida assumida: sem idempotência forte em timeout após envio (mesma janela d
 - [ ] **Contrato do endpoint** (corpo plano × `statusMessage`; base64 com/sem `data:`; resposta): confirmar na sua instância/versão (task 7).
 - [ ] **Limite de texto** do Status e peso da legenda da imagem: não documentado → não validar até o UAT.
 - [ ] **Estado da conexão:** endpoint e valores de `state` a confirmar (`open`/`close`/`connecting`).
-- [ ] ADR-0010 (credenciais por instância + host fixo + Baileys) — escrever com a spec.
+- [x] ADR-0010 (credenciais por instância + host fixo + Baileys) — escrito na T9.

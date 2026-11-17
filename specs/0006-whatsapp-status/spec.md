@@ -165,5 +165,5 @@ O Hub passa a aceitar uma **instância da Evolution já pareada** como conta de 
 - Product: [`./product.md`](./product.md)
 - Design: [`./design.md`](./design.md)
 - Domínio: [`./domain.md`](./domain.md)
-- ADRs relacionados: [0002](../../docs/architecture/adr/0002-tokens-de-pagina-criptografados-com-fernet.md) · [0007](../../docs/architecture/adr/0007-publicacao-por-plataforma-despacho-por-alvo-e-formulario-misto.md) · [0009](../../docs/architecture/adr/0009-orcamento-de-tempo-por-requisicao-de-publicacao.md) · ADR-0010 (a escrever na implementação: credenciais por instância, host fixo, Baileys)
+- ADRs relacionados: [0002](../../docs/architecture/adr/0002-tokens-de-pagina-criptografados-com-fernet.md) · [0007](../../docs/architecture/adr/0007-publicacao-por-plataforma-despacho-por-alvo-e-formulario-misto.md) · [0009](../../docs/architecture/adr/0009-orcamento-de-tempo-por-requisicao-de-publicacao.md) · [0010](../../docs/architecture/adr/0010-whatsapp-status-via-evolution-api-instancia-chave-cifrada-e-host-fixo.md) (credenciais por instância, host fixo, Baileys)
 - Specs afetadas: [0003](../0003-publicar-no-facebook/spec.md) (destinos do formulário) e [0004](../0004-threads-conectar-e-publicar/spec.md) (regras de imagem/seleção) ganham nota de que o WhatsApp também é destino.

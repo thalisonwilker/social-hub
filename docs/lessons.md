@@ -44,6 +44,11 @@ alwaysApply: false
 - 2026-11-17 · Threads/imagem · A Meta baixa a imagem DURANTE a criação do container (POST fica ~4 s aberto; UA `facebookexternalhit`, só GET) e o container de imagem ficou `FINISHED` em ~3,7 s · o Gunicorn precisa de ≥ 2 workers (um espera a Meta, o outro serve a imagem).
 - 2026-11-17 · Threads/túnel · Com o hostname do túnel recém-criado (~2 min) a 1ª criação de container de imagem falhou (`code=1 subcode=2207052`); reenviar funcionou · depois de subir um túnel, esperar alguns minutos antes de publicar imagem.
 
+- 2026-11-17 · Evolution/doc · As páginas oficiais da referência da Evolution (doc.evolution-api.com, mintlify) deram 404/410 e as fontes secundárias divergem (corpo plano × `statusMessage`; base64 com/sem `data:`) · o corpo do Status ficou isolado em `EvolutionClient._status_body`/`_extract_*` e é fixado no UAT contra a instância real.
+- 2026-11-17 · testes Django · Um helper chamado `publish` num TestCase com `PublicationTestMixin` é sombreado pelo mock `self.publish` (instância) e chama o Graph sem querer · nomear `do_publish`.
+- 2026-11-17 · WhatsApp/Baileys · Não é oficial: envio frequente pode banir o número, e o Status não é apagável pelo Hub · testar com número próprio e uso manual/esporádico.
+- 2026-11-17 · testes/Docker · O `.dockerignore` exclui `README.md` (e `Dockerfile`) da imagem: testes que leem esses arquivos quebram no gate do container · usar `unittest.skipUnless(arquivo.exists())` (rodam localmente, pulam no container).
+
 ## Promovidas (histórico curto)
 > Rastro de para onde foram as lições podadas — só o link, sem reexplicar. Poda este histórico também.
 - <YYYY-MM-DD: "<lição>" → [ADR-NNNN](architecture/adr/NNNN-*.md) / glossary / CLAUDE.md>

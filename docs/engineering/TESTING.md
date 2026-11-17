@@ -40,7 +40,7 @@ alwaysApply: false
 python -m venv .venv && .venv/bin/pip install -r requirements.txt
 .venv/bin/python manage.py test apps          # usa config.settings.dev
 ```
-Os testes não acessam a rede: a Graph API é sempre mockada (`apps/social/tests/helpers.py`); a Threads API também é sempre mockada (`threads_helpers.py`, `threads_publisher.py`); a rota pública da imagem é testada de ponta a ponta com um "buscador da Meta" falso (`test_threads_image_security.py`); relógio e `sleep` são injetados nos testes de espera/orçamento; as imagens de teste são geradas
+Os testes não acessam a rede: a Graph API é sempre mockada (`apps/social/tests/helpers.py`); a Threads API também é sempre mockada (`threads_helpers.py`, `threads_publisher.py`); a rota pública da imagem é testada de ponta a ponta com um "buscador da Meta" falso (`test_threads_image_security.py`); a Evolution API (WhatsApp) é sempre mockada no transporte (`evolution_helpers.py`, `test_evolution_publisher.py`) e a segurança roda com uma **Evolution falsa** em `requests.Session.request`, registrando host, rota, headers e corpo (`test_evolution_security.py`); relógio e `sleep` são injetados nos testes de espera/orçamento; as imagens de teste são geradas
 com Pillow em memória e gravadas em diretório temporário (`publication_helpers.py`). O gate oficial roda no
 container, que reproduz o ambiente de produção.
 

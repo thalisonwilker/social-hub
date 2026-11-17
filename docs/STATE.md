@@ -14,7 +14,8 @@ alwaysApply: true
 
 ## Em andamento / próximo passo
 > O que está aberto agora e a **próxima ação concreta** (não "continuar a feature" — diga o passo).
-- Feature ativa: `specs/0005-threads-imagem/` — implementada (tasks 1–9, 371 testes verdes); falta o **UAT real** (task 10).
+- Feature ativa: `specs/0006-whatsapp-status/` — tasks 1–9 implementadas (488+ testes verdes); falta a **task 10**: fixar o contrato do Status lendo a **sua Evolution** (versão, corpo, base64, estado) e o **UAT real** num número de teste (publicar texto e imagem, forçar falha e Tentar novamente).
+- Antes: `specs/0005-threads-imagem/` — implementada; UAT da imagem OK (falta só a falha forçada + Tentar novamente com o túnel fora).
 - **UAT da imagem (2026-11-17): OK** — Facebook + Threads com imagem 2/2 publicados (1ª tentativa falhou com o túnel recém-criado; reenvio funcionou). Falta só a falha forçada + Tentar novamente (túnel fora) e fechar o túnel.
 - (feito) Para o UAT: subir um **túnel novo** (a URL muda), atualizar `THREADS_REDIRECT_URI` no `.env` e a URL de callback na Meta, recriar o container
   (`docker compose up -d --force-recreate`), publicar `exemplos/teste-publicacao.jpg` no Threads (e no Facebook), forçar uma falha (túnel fora) e **Tentar novamente**.
@@ -33,6 +34,7 @@ alwaysApply: true
 - 2026-11-17: Publicação por plataforma (despacho por alvo) e formulário misto com imagem condicional — [ADR-0007](architecture/adr/0007-publicacao-por-plataforma-despacho-por-alvo-e-formulario-misto.md)
 - 2026-11-17: URL pública temporária e assinada para a imagem do Threads — [ADR-0008](architecture/adr/0008-url-publica-temporaria-assinada-para-imagem-do-threads.md)
 - 2026-11-17: Orçamento de tempo por requisição de publicação — [ADR-0009](architecture/adr/0009-orcamento-de-tempo-por-requisicao-de-publicacao.md)
+- 2026-11-17: WhatsApp (Status) via Evolution — conta = instância com chave cifrada, host só do servidor, imagem em base64, Baileys não oficial — [ADR-0010](architecture/adr/0010-whatsapp-status-via-evolution-api-instancia-chave-cifrada-e-host-fixo.md)
 - 2026-11-17: Seleção multi-Página numa tela do Hub; Páginas pendentes ficam na sessão, com tokens cifrados (TTL 10 min).
 
 ## Bloqueios

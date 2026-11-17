@@ -4,7 +4,8 @@ Plataforma web para centralizar o gerenciamento e a publicação de conteúdos e
 
 > **Estado atual:** estrutura base, autenticação, dashboard (dados **demonstrativos**), infraestrutura Docker,
 > **integração com Páginas do Facebook** (conectar, listar, verificar e desconectar), **publicação de texto + imagem
-> em uma ou várias Páginas** e **Threads** (conectar perfil e publicar texto e imagem, junto ou separado do Facebook).
+> em uma ou várias Páginas**, **Threads** (conectar perfil e publicar texto e imagem, junto ou separado do Facebook) e
+> **Status do WhatsApp** (via uma Evolution API sua, texto e imagem).
 > Agendamento e insights reais **ainda não** foram implementados.
 
 ## Stack
@@ -192,6 +193,28 @@ docker run --rm --name social-hub-tunnel cloudflare/cloudflared:latest tunnel --
 - Limite da Meta: 250 publicações por 24 h por perfil. Vídeo, carrossel e respostas no Threads ainda não existem.
 - Os callbacks de **desinstalação** e **exclusão de dados** ainda não são tratados (exigidos para o modo Live da Meta).
 
+## WhatsApp (Status) via Evolution API
+
+Publica no **Status do WhatsApp** de um número **já pareado** na sua **Evolution API** (Baileys), junto ou separado de Facebook e Threads, no mesmo
+formulário. Não há OAuth nem **QR** no Hub: o pareamento é feito na Evolution; o Hub só guarda o nome da instância e a chave dela.
+
+> **Aviso:** o **Baileys não é oficial** (é o WhatsApp Web). Envio frequente ou em massa pode levar ao **banimento do número**. Use de forma manual e esporádica.
+> O Status **não pode ser apagado** pelo Hub: teste com um número seu.
+
+### Configurar
+1. No `.env`, defina `EVOLUTION_API_URL` com a **origem HTTPS** da sua Evolution (só o host, ex.: `https://evolution.exemplo.com`; um caminho como `/manager` é ignorado)
+   e reinicie o serviço. Sem ela a integração fica desligada (as outras plataformas seguem normais).
+2. Em **Contas conectadas → Adicionar WhatsApp**, informe o **nome da instância** e a **chave da instância** (a chave da própria instância, **nunca a chave global** da Evolution).
+   O Hub confere que a instância está conectada (`open`) e guarda a chave **cifrada**; ela não é exibida de novo.
+3. Em **Nova publicação**, marque o grupo **Status do WhatsApp**. O texto vira o Status (ou a legenda da imagem) e a audiência é a de **todos os contatos** do número.
+
+### Regras
+- A imagem é **opcional** com WhatsApp (continua obrigatória com Página do Facebook). Ela vai **em base64** na chamada: **não** precisa de túnel nem de `PUBLIC_BASE_URL`.
+- Se a instância cair ou a chave for recusada, a conta fica em **Reconexão necessária**: refaça o pareamento na Evolution e use **Atualizar chave** na tela de Contas.
+- Outras falhas (rede, tempo esgotado, limite) deixam o alvo como **Falhou**, e **Tentar novamente** o reenvia. Um timeout *depois* de a Evolution enviar pode duplicar o Status (limitação conhecida).
+- O host da Evolution vem **só** do servidor; o usuário nunca informa endereço. Chave, imagem e texto não vão para logs.
+- Variáveis: `EVOLUTION_API_URL` (HTTPS) e `EVOLUTION_TIMEOUT_SECONDS` (`60`; o tempo real é limitado pelo orçamento da requisição).
+
 ## Configuração (variáveis de ambiente)
 
 | Variável | Padrão | Descrição |
@@ -207,6 +230,7 @@ docker run --rm --name social-hub-tunnel cloudflare/cloudflared:latest tunnel --
 | `GUNICORN_WORKERS` | `2` | Workers do Gunicorn |
 | `META_*` | — | Integração com o Facebook (veja a seção acima) |
 | `THREADS_*` | — | Integração com o Threads (veja a seção acima) |
+| `EVOLUTION_*` | — | WhatsApp (Status) via Evolution API: `EVOLUTION_API_URL` (HTTPS) e `EVOLUTION_TIMEOUT_SECONDS` (`60`) |
 | `PUBLISH_BATCH_SIZE` | `5` | Teto de alvos enviados por requisição de publicação |
 | `PUBLIC_BASE_URL` | — | Endereço público HTTPS do Hub (imagem no Threads); vazio = origem do redirect do Threads |
 | `PUBLISH_REQUEST_BUDGET_SECONDS` | `150` | Orçamento de tempo de uma requisição de envio |
@@ -238,4 +262,4 @@ docker compose cp web:/data/backup.sqlite3 ./backup.sqlite3
 
 ## Próximas etapas
 
-Agendamento (exige fila/worker), insights reais na dashboard e Instagram — todos no app `social`.
+Agendamento (exige fila/worker), insights reais na dashboard e Instagram — todos no app `social`. Para o WhatsApp: grupos/contatos, vídeo e lista de contatos do Status.
