@@ -124,6 +124,13 @@ THREADS_GRAPH_VERSION = os.environ.get("THREADS_GRAPH_VERSION", "v1.0")
 THREADS_REFRESH_WINDOW_DAYS = int(os.environ.get("THREADS_REFRESH_WINDOW_DAYS", "30"))
 THREADS_CONTAINER_WAIT_SECONDS = int(os.environ.get("THREADS_CONTAINER_WAIT_SECONDS", "20"))
 
+# Imagem no Threads (spec 0005): a Meta baixa a imagem de uma URL pública temporária e assinada do Hub.
+PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL", "")  # HTTPS; vazio = origem do THREADS_REDIRECT_URI
+THREADS_IMAGE_URL_TTL_SECONDS = int(os.environ.get("THREADS_IMAGE_URL_TTL_SECONDS", "1800"))
+THREADS_IMAGE_WAIT_SECONDS = int(os.environ.get("THREADS_IMAGE_WAIT_SECONDS", "60"))
+# Orçamento de tempo de uma requisição de envio (deve ser menor que o --timeout do Gunicorn).
+PUBLISH_REQUEST_BUDGET_SECONDS = int(os.environ.get("PUBLISH_REQUEST_BUDGET_SECONDS", "150"))
+
 LOGIN_URL = "accounts:login"
 LOGIN_REDIRECT_URL = "dashboard:index"
 LOGOUT_REDIRECT_URL = "accounts:login"

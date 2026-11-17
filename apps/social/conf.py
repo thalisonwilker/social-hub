@@ -50,3 +50,26 @@ def threads_redirect_host() -> str:
     from urllib.parse import urlparse
 
     return urlparse(getattr(settings, "THREADS_REDIRECT_URI", "") or "").netloc
+
+
+def _https_origin(url: str) -> str:
+    from urllib.parse import urlparse
+
+    parsed = urlparse((url or "").strip())
+    if parsed.scheme != "https" or not parsed.netloc:
+        return ""
+    return f"https://{parsed.netloc}"
+
+
+def public_base_url() -> str:
+    """Endereço público (origem HTTPS) pelo qual a Meta alcança o Hub. Nunca vem do cabeçalho Host.
+
+    `PUBLIC_BASE_URL`; se vazio, a origem do `THREADS_REDIRECT_URI`. Vazio se nenhum for HTTPS.
+    """
+    return _https_origin(getattr(settings, "PUBLIC_BASE_URL", "")) or _https_origin(
+        getattr(settings, "THREADS_REDIRECT_URI", "")
+    )
+
+
+def public_url_configured() -> bool:
+    return bool(public_base_url())
