@@ -1,0 +1,189 @@
+"""Publicação de uma imagem com texto em várias Páginas (ADR-0004).
+
+- Envio síncrono em lotes (`PUBLISH_BATCH_SIZE`); cada alvo é REIVINDICADO atomicamente antes da chamada.
+- Alvo `published` nunca é reenviado; `sending` recente não é reenviado; `sending` antigo é recuperado.
+- Erros viram mensagens amigáveis (nunca o texto cru da Meta). Nada de token ou texto da publicação em log.
+"""
+import logging
+import os
+from dataclasses import dataclass
+from datetime import timedelta
+
+from django.conf import settings
+from django.db import transaction
+from django.db.models import F, Q
+from django.utils import timezone
+
+from apps.social.crypto import TokenCryptoError
+from apps.social.images import SanitizedImage
+from apps.social.models import Publication, PublicationTarget, SocialAccount
+
+from .meta import GraphClient, MetaApiError
+
+logger = logging.getLogger("apps.social.meta")
+
+STALE_SENDING = timedelta(minutes=5)
+POST_URL = "https://www.facebook.com/{post_id}"
+
+MSG_REAUTH = "Reconexão necessária para esta Página."
+MSG_PERMISSION = "Sem permissão para publicar nesta Página."
+MSG_RATE_LIMIT = "Limite de requisições da Meta. Tente mais tarde."
+MSG_BLOCKED = "A Meta bloqueou esta publicação."
+MSG_NETWORK = "Falha de comunicação com a Meta."
+MSG_DISCONNECTED = "Conta desconectada."
+MSG_CREDENTIALS = "Não foi possível ler as credenciais desta Página. Reconecte a conta."
+MSG_IMAGE_MISSING = "A imagem da publicação não está disponível no servidor."
+
+TOKEN_CODES = {102, 190}
+PERMISSION_CODES = {10, 200, 220}
+RATE_LIMIT_CODES = {4, 17, 32, 613}
+BLOCKED_CODES = {368}
+NETWORK_CODES = {"network", "bad_response"}
+
+S = PublicationTarget.Status
+
+
+@dataclass(frozen=True)
+class BatchResult:
+    attempted: int  # alvos enviados à Meta nesta chamada
+    published: int
+    failed: int
+    remaining: int  # alvos ainda pendentes (não couberam no lote)
+
+
+# --- criação ------------------------------------------------------------------
+def create_publication(owner, text: str, image: SanitizedImage, accounts) -> Publication:
+    """Cria a publicação, grava a imagem e um alvo `pending` por Página (uma transação)."""
+    publication = Publication(owner=owner, text=text, image_content_type=image.content_type)
+    publication.image.save(image.content.name, image.content, save=False)
+    try:
+        with transaction.atomic():
+            publication.save()
+            targets = PublicationTarget.objects.bulk_create(
+                [
+                    PublicationTarget(
+                        publication=publication,
+                        account=account,
+                        page_external_id=account.external_id,
+                        page_name=account.name,
+                    )
+                    for account in accounts
+                ]
+            )
+    except Exception:
+        publication.image.delete(save=False)  # não deixa arquivo órfão
+        raise
+    logger.info("publication_created targets=%d", len(targets))
+    return publication
+
+
+# --- reivindicação atômica ----------------------------------------------------
+def claim_target(target_id: int) -> PublicationTarget | None:
+    """Marca o alvo como `sending` só se ele puder ser enviado. Devolve None se outra requisição o tem."""
+    now = timezone.now()
+    was_sending = PublicationTarget.objects.filter(pk=target_id, status=S.SENDING).exists()
+    claimable = Q(status__in=[S.PENDING, S.FAILED]) | Q(status=S.SENDING, last_attempt_at__lt=now - STALE_SENDING)
+    updated = (
+        PublicationTarget.objects.filter(claimable, pk=target_id, account__isnull=False)
+        .update(status=S.SENDING, last_attempt_at=now, attempts=F("attempts") + 1)
+    )
+    if updated != 1:
+        return None
+    if was_sending:
+        logger.warning("target_reclaimed target=%s", target_id)
+    return PublicationTarget.objects.select_related("account", "publication").get(pk=target_id)
+
+
+# --- envio --------------------------------------------------------------------
+def send_pending(publication: Publication, *, client: GraphClient | None = None, batch_size: int | None = None) -> BatchResult:
+    """Envia até `batch_size` alvos pendentes/falhos. Alvos `published` nunca são tocados."""
+    limit = batch_size or settings.PUBLISH_BATCH_SIZE
+    candidates = list(
+        publication.targets.filter(status__in=[S.PENDING, S.FAILED, S.SENDING]).select_related("account")
+    )
+    candidates.sort(key=lambda t: (t.status != S.PENDING, t.page_name, t.id))  # pendentes primeiro
+
+    client = client or GraphClient.from_settings()
+    attempted = published = failed = 0
+    for target in candidates:
+        if attempted >= limit:
+            break
+        if target.account_id is None:  # conta desconectada: falha sem chamar a Meta
+            if not (target.status == S.FAILED and target.error_message == MSG_DISCONNECTED):
+                _mark_failed(target, MSG_DISCONNECTED, "disconnected")
+            continue
+        claimed = claim_target(target.pk)
+        if claimed is None:
+            continue
+        attempted += 1
+        if _publish_target(claimed, client):
+            published += 1
+        else:
+            failed += 1
+
+    remaining = publication.targets.filter(status=S.PENDING, account__isnull=False).count()
+    logger.info("publish_batch size=%d ok=%d failed=%d", attempted, published, failed)
+    return BatchResult(attempted=attempted, published=published, failed=failed, remaining=remaining)
+
+
+def _publish_target(target: PublicationTarget, client: GraphClient) -> bool:
+    account, publication = target.account, target.publication
+    try:
+        token = account.get_token()
+        with publication.image.open("rb") as fh:
+            result = client.publish_photo(
+                account.external_id,
+                token,
+                image=fh,
+                filename=os.path.basename(publication.image.name),
+                content_type=publication.image_content_type,
+                message=publication.text,
+            )
+    except TokenCryptoError:
+        _mark_failed(target, MSG_CREDENTIALS, "crypto")
+        return False
+    except FileNotFoundError:
+        _mark_failed(target, MSG_IMAGE_MISSING, "image_missing")
+        return False
+    except MetaApiError as exc:
+        message = friendly_error(exc)
+        if exc.code in TOKEN_CODES:
+            SocialAccount.objects.filter(pk=account.pk).update(
+                status=SocialAccount.Status.NEEDS_REAUTH,
+                last_error=f"Meta erro {exc.code}",
+                last_checked_at=timezone.now(),
+            )
+        _mark_failed(target, message, str(exc.code or "unknown"))
+        return False
+
+    post_id = result["post_id"]
+    PublicationTarget.objects.filter(pk=target.pk).update(
+        status=S.PUBLISHED,
+        external_post_id=post_id,
+        permalink=POST_URL.format(post_id=post_id),
+        published_at=timezone.now(),
+        error_message="",
+        error_code="",
+    )
+    logger.info("publish_ok page=%s", target.page_external_id)
+    return True
+
+
+def _mark_failed(target: PublicationTarget, message: str, code: str) -> None:
+    PublicationTarget.objects.filter(pk=target.pk).update(status=S.FAILED, error_message=message, error_code=code)
+    logger.warning("publish_failed page=%s code=%s", target.page_external_id, code)
+
+
+def friendly_error(exc: MetaApiError) -> str:
+    code = exc.code
+    if code in TOKEN_CODES:
+        return MSG_REAUTH
+    if code in PERMISSION_CODES:
+        return MSG_PERMISSION
+    if code in RATE_LIMIT_CODES:
+        return MSG_RATE_LIMIT
+    if code in BLOCKED_CODES:
+        return MSG_BLOCKED
+    if code in NETWORK_CODES:
+        return MSG_NETWORK
+    return f"A Meta recusou a publicação (código {code})." if code else "A Meta recusou a publicação."
