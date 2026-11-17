@@ -8,7 +8,7 @@ from django.views.generic import TemplateView
 
 from apps.core.views import PlaceholderView  # noqa: F401  (usado em urls.py)
 
-from .conf import meta_configured
+from .conf import meta_configured, threads_configured
 from .crypto import TokenCryptoError
 from .services import facebook_connect
 from .models import SocialAccount
@@ -136,6 +136,7 @@ class AccountsView(TemplateView):
         context.update(
             page_title="Contas conectadas",
             configured=meta_configured(),
+            threads_configured=threads_configured(),
             accounts=SocialAccount.objects.filter(owner=self.request.user),
         )
         return context

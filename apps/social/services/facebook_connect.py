@@ -39,15 +39,15 @@ class FetchResult:
 
 
 # --- state (anti-CSRF) --------------------------------------------------------
-def new_state(session) -> str:
+def new_state(session, key: str = STATE_KEY) -> str:
     state = secrets.token_urlsafe(32)
-    session[STATE_KEY] = {"value": state, "exp": time.time() + TTL_SECONDS}
+    session[key] = {"value": state, "exp": time.time() + TTL_SECONDS}
     return state
 
 
-def consume_state(session, received: str) -> bool:
-    """Valida e consome o state (uso único)."""
-    stored = session.pop(STATE_KEY, None)
+def consume_state(session, received: str, key: str = STATE_KEY) -> bool:
+    """Valida e consome o state (uso único). `key` permite reutilizar a regra em outras plataformas."""
+    stored = session.pop(key, None)
     if not stored or not received:
         return False
     if time.time() > stored.get("exp", 0):

@@ -1,14 +1,26 @@
 {% extends "layout.html" %}
 {% block content %}
 <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
-  <p class="text-muted">Conecte as Páginas que você administra para gerenciá-las pelo Social Hub.</p>
-  <form method="post" action="{% url 'social:facebook_connect' %}">
-    {% csrf_token %}
-    <button type="submit" class="btn btn-primary" {% if not configured %}disabled aria-disabled="true"{% endif %}>
-      <i data-lucide="facebook" class="h-4 w-4"></i>Conectar Facebook
-    </button>
-  </form>
+  <p class="text-muted">Conecte as Páginas e perfis que você administra para gerenciá-los pelo Social Hub.</p>
+  <div class="flex flex-wrap gap-2">
+    <form method="post" action="{% url 'social:facebook_connect' %}">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-primary" {% if not configured %}disabled aria-disabled="true"{% endif %}>
+        <i data-lucide="facebook" class="h-4 w-4"></i>Conectar Facebook
+      </button>
+    </form>
+    <form method="post" action="{% url 'social:threads_connect' %}">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-primary" {% if not threads_configured %}disabled aria-disabled="true" title="Integração com o Threads não configurada"{% endif %}>
+        <i data-lucide="at-sign" class="h-4 w-4"></i>Conectar Threads
+      </button>
+    </form>
+  </div>
 </div>
+
+{% if not threads_configured %}
+<p class="mb-4 text-xs text-muted">Threads: integração com o Threads não configurada (veja as variáveis <code>THREADS_*</code> no README).</p>
+{% endif %}
 
 {% if not configured %}
 <div class="card mb-5 flex items-start gap-3 border-l-2 border-l-warn px-4 py-3" role="status">
