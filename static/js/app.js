@@ -21,6 +21,15 @@
     if (openBtn) { toggleSidebar(true); return; }
     if (event.target.closest("[data-sidebar-close]")) { toggleSidebar(false); return; }
 
+    // "Marcar todas": alterna todas as caixas do formulário.
+    var selectAll = event.target.closest("[data-select-all]");
+    if (selectAll) {
+      var boxes = selectAll.closest("form").querySelectorAll('input[type="checkbox"]');
+      var allChecked = Array.prototype.every.call(boxes, function (b) { return b.checked; });
+      boxes.forEach(function (b) { b.checked = !allChecked; });
+      return;
+    }
+
     var dismiss = event.target.closest("[data-dismiss]");
     if (dismiss && dismiss.parentElement) { dismiss.parentElement.remove(); }
   });

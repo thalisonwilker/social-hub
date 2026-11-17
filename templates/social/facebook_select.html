@@ -1,0 +1,42 @@
+{% extends "layout.html" %}
+{% block content %}
+<form method="post" class="card max-w-2xl" novalidate>
+  {% csrf_token %}
+  <div class="flex flex-wrap items-center justify-between gap-2 border-b border-line px-5 py-4">
+    <div>
+      <h2 class="card-title">Quais Páginas deseja conectar?</h2>
+      <p class="text-muted">Marque uma ou várias. Você poderá desconectá-las depois.</p>
+    </div>
+    <button type="button" data-select-all class="btn">Marcar todas</button>
+  </div>
+
+  {% if error %}
+    <div class="border-b border-line border-l-2 border-l-danger bg-surface-2 px-5 py-3 text-danger" role="alert">{{ error }}</div>
+  {% endif %}
+
+  <ul class="divide-y divide-line">
+    {% for page in pages %}
+    <li>
+      <label class="flex cursor-pointer items-center gap-4 px-5 py-3 hover:bg-surface-2">
+        <input type="checkbox" name="pages" value="{{ page.id }}" class="h-4 w-4 accent-accent">
+        {% if page.picture_url %}
+          <img src="{{ page.picture_url }}" alt="" class="h-10 w-10 rounded border border-line object-cover" referrerpolicy="no-referrer">
+        {% else %}
+          <span class="flex h-10 w-10 items-center justify-center rounded border border-line bg-surface-2 text-muted"><i data-lucide="flag" class="h-4 w-4"></i></span>
+        {% endif %}
+        <span class="min-w-0 flex-1">
+          <span class="block truncate font-medium">{{ page.name }}</span>
+          <span class="block truncate text-xs text-muted">{{ page.category|default:"Página do Facebook" }}</span>
+        </span>
+        {% if page.connected %}<span class="badge badge-ok">Já conectada</span>{% endif %}
+      </label>
+    </li>
+    {% endfor %}
+  </ul>
+
+  <div class="flex gap-2 border-t border-line px-5 py-4">
+    <button type="submit" class="btn btn-primary">Conectar selecionadas</button>
+    <a href="{% url 'social:accounts' %}" class="btn btn-ghost">Cancelar</a>
+  </div>
+</form>
+{% endblock %}
