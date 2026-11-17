@@ -8,7 +8,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views import View
 from django.views.generic import TemplateView
 
-from .conf import meta_configured
+from .conf import meta_configured, threads_configured
 from .forms import PublicationForm
 from .models import Publication, SocialAccount
 from .services import publishing, threads_tokens
@@ -16,7 +16,9 @@ from .services import publishing, threads_tokens
 logger = logging.getLogger("apps.social.meta")
 
 MSG_NOT_CONFIGURED = "Integração com a Meta não configurada."
-MSG_NO_ACTIVE_PAGES = "Conecte ao menos uma Página ativa antes de publicar."
+MSG_NO_ACTIVE_PAGES = "Conecte ao menos uma Página ativa ou um perfil do Threads antes de publicar."
+MSG_THREADS_NOT_CONFIGURED = "Integração com o Threads não configurada."
+MSG_THREADS_IMAGE_IGNORED = "No Threads, apenas o texto é publicado: a imagem foi ignorada."
 MSG_SAVE_FAILED = "Não foi possível salvar a publicação. Tente novamente."
 CONFIRM = "Será publicado de verdade nas Páginas selecionadas. Continuar?"
 
@@ -57,22 +59,54 @@ class PostsView(TemplateView):
 class PostNewView(View):
     template_name = "social/post_form.html"
 
-    def _all_accounts(self, request):
+    PLATFORM_LABELS = {
+        SocialAccount.Platform.FACEBOOK_PAGE: "Integração com a Meta não configurada",
+        SocialAccount.Platform.THREADS: MSG_THREADS_NOT_CONFIGURED,
+    }
+
+    def _configured(self):
+        return {
+            SocialAccount.Platform.FACEBOOK_PAGE: meta_configured(),
+            SocialAccount.Platform.THREADS: threads_configured(),
+        }
+
+    def _destinations(self, request):
+        """Contas do usuário anotadas com `selectable` (ativa e com a plataforma configurada) e o motivo de não estar."""
         threads_tokens.expire_stale_tokens(request.user)  # contas com token vencido não podem ser alvo
-        return SocialAccount.objects.filter(owner=request.user, platform=SocialAccount.Platform.FACEBOOK_PAGE)
+        configured = self._configured()
+        accounts = list(
+            SocialAccount.objects.filter(
+                owner=request.user,
+                platform__in=[SocialAccount.Platform.FACEBOOK_PAGE, SocialAccount.Platform.THREADS],
+            )
+        )
+        for account in accounts:
+            if account.needs_reauth:
+                account.unavailable_reason = "Reconexão necessária"
+            elif not configured[account.platform]:
+                account.unavailable_reason = "Integração não configurada"
+            else:
+                account.unavailable_reason = ""
+            account.selectable = not account.unavailable_reason
+        return accounts
 
-    def _blocked_reason(self, request):
-        if not meta_configured():
-            return MSG_NOT_CONFIGURED
-        if not self._all_accounts(request).filter(status=SocialAccount.Status.ACTIVE).exists():
-            return MSG_NO_ACTIVE_PAGES
-        return None
+    def _blocked_reason(self, accounts):
+        if any(a.selectable for a in accounts):
+            return None
+        active = [a for a in accounts if a.status == SocialAccount.Status.ACTIVE]
+        if active:  # há contas ativas, mas a integração da plataforma delas não está configurada
+            return self.PLATFORM_LABELS[active[0].platform] + "."
+        return MSG_NO_ACTIVE_PAGES
 
-    def _render(self, request, form, *, blocked=None, status=200):
+    def _render(self, request, form, accounts, *, blocked=None, status=200):
+        facebook = [a for a in accounts if a.platform == SocialAccount.Platform.FACEBOOK_PAGE]
+        threads = [a for a in accounts if a.platform == SocialAccount.Platform.THREADS]
         context = {
             "page_title": "Nova publicação",
             "form": form,
-            "all_accounts": self._all_accounts(request),
+            "facebook_accounts": facebook,
+            "threads_accounts": threads,
+            "destination_groups": [("Páginas do Facebook", "facebook", facebook), ("Perfis do Threads", "at-sign", threads)],
             "selected": set(request.POST.getlist("accounts")),
             "blocked": blocked,
             "confirm_message": CONFIRM,
@@ -80,19 +114,25 @@ class PostNewView(View):
         }
         return render(request, self.template_name, context, status=status)
 
+    def _form(self, request, accounts, *args):
+        platforms = {a.platform for a in accounts if a.selectable}
+        return PublicationForm(*args, user=request.user, platforms=platforms)
+
     def get(self, request):
-        blocked = self._blocked_reason(request)
-        return self._render(request, None if blocked else PublicationForm(user=request.user), blocked=blocked)
+        accounts = self._destinations(request)
+        blocked = self._blocked_reason(accounts)
+        return self._render(request, None if blocked else self._form(request, accounts), accounts, blocked=blocked)
 
     def post(self, request):
-        blocked = self._blocked_reason(request)
+        accounts = self._destinations(request)
+        blocked = self._blocked_reason(accounts)
         if blocked:
             messages.error(request, blocked)
             return redirect("social:accounts")
 
-        form = PublicationForm(request.POST, request.FILES, user=request.user)
+        form = self._form(request, accounts, request.POST, request.FILES)
         if not form.is_valid():
-            return self._render(request, form)
+            return self._render(request, form, accounts)
 
         try:
             publication = publishing.create_publication(
@@ -100,8 +140,10 @@ class PostNewView(View):
             )
         except (OSError, DatabaseError):
             form.add_error(None, MSG_SAVE_FAILED)
-            return self._render(request, form, status=500)
+            return self._render(request, form, accounts, status=500)
 
+        if form.image_ignored:
+            messages.info(request, MSG_THREADS_IMAGE_IGNORED)
         report_batch(request, publishing.send_pending(publication))
         return redirect("social:post_detail", pk=publication.pk)
 
@@ -141,6 +183,8 @@ class PostImageView(View):
 
     def get(self, request, pk):
         publication = get_publication_or_404(request, pk)
+        if not publication.has_image:
+            raise Http404("Esta publicação não tem imagem.")
         try:
             handle = publication.image.open("rb")
         except FileNotFoundError:

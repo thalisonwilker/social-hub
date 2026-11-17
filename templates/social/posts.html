@@ -1,7 +1,7 @@
 {% extends "layout.html" %}
 {% block content %}
 <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
-  <p class="text-muted">Publique uma imagem com texto em várias Páginas de uma só vez.</p>
+  <p class="text-muted">Publique em várias Páginas e perfis de uma só vez: imagem + texto no Facebook, texto no Threads.</p>
   <a href="{% url 'social:post_new' %}" class="btn btn-primary"><i data-lucide="plus" class="h-4 w-4"></i>Nova publicação</a>
 </div>
 
@@ -9,7 +9,11 @@
   {% for publication in publications %}
     {% with counts=publication.status_counts %}
     <a href="{% url 'social:post_detail' publication.pk %}" class="flex items-center gap-4 px-5 py-4 hover:bg-surface-2 {% if not forloop.last %}border-b border-line{% endif %}">
-      <img src="{% url 'social:post_image' publication.pk %}" alt="" class="h-14 w-14 shrink-0 rounded border border-line object-cover" loading="lazy">
+      {% if publication.has_image %}
+        <img src="{% url 'social:post_image' publication.pk %}" alt="" class="h-14 w-14 shrink-0 rounded border border-line object-cover" loading="lazy">
+      {% else %}
+        <span class="flex h-14 w-14 shrink-0 items-center justify-center rounded border border-line bg-surface-2 text-muted"><i data-lucide="type" class="h-5 w-5"></i></span>
+      {% endif %}
       <div class="min-w-0 flex-1">
         <p class="truncate font-medium">{{ publication.text|truncatechars:140 }}</p>
         <p class="truncate text-xs text-muted">

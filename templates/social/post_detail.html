@@ -4,7 +4,11 @@
 
 <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
   <section class="card p-5 lg:col-span-1" aria-label="Conteúdo">
-    <img src="{% url 'social:post_image' publication.pk %}" alt="Imagem da publicação" class="mb-4 w-full rounded border border-line object-cover">
+    {% if publication.has_image %}
+      <img src="{% url 'social:post_image' publication.pk %}" alt="Imagem da publicação" class="mb-4 w-full rounded border border-line object-cover">
+    {% else %}
+      <div class="mb-4 flex h-24 items-center justify-center gap-2 rounded border border-dashed border-line bg-surface-2 text-xs text-muted"><i data-lucide="type" class="h-4 w-4"></i>Publicação só de texto</div>
+    {% endif %}
     <p class="whitespace-pre-line break-words">{{ publication.text }}</p>
     <p class="mt-4 text-xs text-muted">Criada em {{ publication.created_at|date:"d/m/Y H:i" }}</p>
     <p class="mt-2">
@@ -32,11 +36,12 @@
       {% for target in targets %}
       <li class="flex flex-wrap items-center gap-3 px-5 py-3">
         <div class="min-w-0 flex-1">
-          <p class="truncate font-medium">{{ target.page_name }}</p>
+          <p class="truncate font-medium"><i data-lucide="{% if target.platform == 'threads' %}at-sign{% else %}facebook{% endif %}" class="mr-1 inline h-3.5 w-3.5 text-muted"></i>{{ target.page_name }}
+            <span class="text-xs font-normal text-muted">· {{ target.get_platform_display }}</span></p>
           {% if target.status == 'failed' %}
             <p class="text-xs text-danger">{{ target.error_message }}</p>
           {% elif target.status == 'published' %}
-            <p class="text-xs text-muted">Publicado em {{ target.published_at|date:"d/m/Y H:i" }}</p>
+            <p class="text-xs text-muted">Publicado em {{ target.published_at|date:"d/m/Y H:i" }}{% if not target.permalink %} · link indisponível{% endif %}</p>
           {% elif target.status == 'sending' %}
             <p class="text-xs text-muted">Envio em andamento…</p>
           {% else %}
