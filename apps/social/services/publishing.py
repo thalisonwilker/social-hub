@@ -168,7 +168,9 @@ def send_pending(
         elif claimed.platform == SocialAccount.Platform.WHATSAPP_STATUS:
             if evolution_client is None and evolution_configured():
                 evolution_client = EvolutionClient.from_settings()
-            ok = _publish_whatsapp_target(claimed, evolution_client)
+            # A chamada nunca passa do orçamento: min(config, restante − folga). A sondagem de estado (≤ 10 s) cabe na folga.
+            timeout = min(settings.EVOLUTION_TIMEOUT_SECONDS, remaining_time - WAIT_SAFETY_MARGIN)
+            ok = _publish_whatsapp_target(claimed, evolution_client, timeout=timeout)
         else:
             client = client or GraphClient.from_settings()
             ok = _publish_target(claimed, client)
