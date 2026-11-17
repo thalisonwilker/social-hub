@@ -1,0 +1,66 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="mb-5 flex flex-wrap items-center justify-between gap-3">
+  <p class="text-muted">Conecte as Páginas que você administra para gerenciá-las pelo Social Hub.</p>
+  <form method="post" action="{% url 'social:facebook_connect' %}">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-primary" {% if not configured %}disabled aria-disabled="true"{% endif %}>
+      <i data-lucide="facebook" class="h-4 w-4"></i>Conectar Facebook
+    </button>
+  </form>
+</div>
+
+{% if not configured %}
+<div class="card mb-5 flex items-start gap-3 border-l-2 border-l-warn px-4 py-3" role="status">
+  <i data-lucide="triangle-alert" class="mt-0.5 h-4 w-4 shrink-0 text-warn"></i>
+  <div>
+    <p class="font-medium">Integração com a Meta não configurada</p>
+    <p class="text-muted">Defina as variáveis <code>META_*</code> no arquivo <code>.env</code> e reinicie o serviço. Veja o README.</p>
+  </div>
+</div>
+{% endif %}
+
+<section class="card" aria-label="Contas conectadas">
+  {% for account in accounts %}
+    <article class="flex flex-wrap items-center gap-4 px-5 py-4 {% if not forloop.last %}border-b border-line{% endif %}">
+      {% if account.picture_url %}
+        <img src="{{ account.picture_url }}" alt="" class="h-11 w-11 rounded border border-line object-cover" referrerpolicy="no-referrer">
+      {% else %}
+        <span class="flex h-11 w-11 items-center justify-center rounded border border-line bg-surface-2 text-muted"><i data-lucide="flag" class="h-5 w-5"></i></span>
+      {% endif %}
+
+      <div class="min-w-0 flex-1">
+        <p class="truncate font-medium">{{ account.name }}</p>
+        <p class="truncate text-xs text-muted">
+          {{ account.get_platform_display }}{% if account.category %} · {{ account.category }}{% endif %} · conectada em {{ account.connected_at|date:"d/m/Y" }}
+        </p>
+      </div>
+
+      <span class="badge {% if account.needs_reauth %}badge-warn{% else %}badge-ok{% endif %}">{{ account.get_status_display }}</span>
+
+      <div class="flex gap-2">
+        {% if account.needs_reauth %}
+        <form method="post" action="{% url 'social:facebook_connect' %}">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-primary" {% if not configured %}disabled{% endif %}><i data-lucide="refresh-cw" class="h-4 w-4"></i>Reconectar</button>
+        </form>
+        {% endif %}
+        <form method="post" action="{% url 'social:account_check' account.pk %}">
+          {% csrf_token %}
+          <button type="submit" class="btn"><i data-lucide="refresh-cw" class="h-4 w-4"></i>Verificar</button>
+        </form>
+        <form method="post" action="{% url 'social:account_disconnect' account.pk %}" data-confirm="Desconectar “{{ account.name }}”? O token será apagado do Social Hub.">
+          {% csrf_token %}
+          <button type="submit" class="btn text-danger"><i data-lucide="trash-2" class="h-4 w-4"></i>Desconectar</button>
+        </form>
+      </div>
+    </article>
+  {% empty %}
+    <div class="px-6 py-12 text-center">
+      <span class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded border border-line bg-surface-2 text-accent"><i data-lucide="share-2" class="h-6 w-6"></i></span>
+      <h2 class="text-base font-semibold">Nenhuma conta conectada</h2>
+      <p class="mx-auto mt-1 max-w-md text-muted">Clique em “Conectar Facebook” para autorizar o Social Hub e escolher as Páginas que deseja gerenciar.</p>
+    </div>
+  {% endfor %}
+</section>
+{% endblock %}

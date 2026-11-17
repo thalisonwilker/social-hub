@@ -1,14 +1,17 @@
 import logging
 
 from django.contrib import messages
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.views import View
+from django.views.generic import TemplateView
 
 from apps.core.views import PlaceholderView  # noqa: F401  (usado em urls.py)
 
 from .conf import meta_configured
 from .crypto import TokenCryptoError
 from .services import facebook_connect
+from .models import SocialAccount
 from .services.meta import GraphClient, MetaApiError
 
 logger = logging.getLogger("apps.social.meta")
@@ -82,8 +85,6 @@ class FacebookSelectView(View):
     template_name = "social/facebook_select.html"
 
     def _render(self, request, pages, *, error=None, status=200):
-        from .models import SocialAccount
-
         connected = set(
             SocialAccount.objects.filter(
                 owner=request.user, platform=SocialAccount.Platform.FACEBOOK_PAGE
@@ -121,4 +122,72 @@ class FacebookSelectView(View):
             )
         count = len(accounts)
         messages.success(request, f"{count} Página conectada." if count == 1 else f"{count} Páginas conectadas.")
+        return redirect("social:accounts")
+
+
+class AccountsView(TemplateView):
+    """Lista as contas sociais do usuário logado (nunca expõe tokens)."""
+
+    template_name = "social/accounts.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update(
+            page_title="Contas conectadas",
+            configured=meta_configured(),
+            accounts=SocialAccount.objects.filter(owner=self.request.user),
+        )
+        return context
+
+
+class AccountActionView(View):
+    """Base das ações POST sobre uma conta; só o dono acessa (404 caso contrário)."""
+
+    http_method_names = ["post", "options"]
+
+    def get_account(self, request, pk):
+        return get_object_or_404(SocialAccount, pk=pk, owner=request.user)
+
+
+class AccountCheckView(AccountActionView):
+    """Testa o token da Página (`GET /{page_id}`) e atualiza o status."""
+
+    def post(self, request, pk):
+        account = self.get_account(request, pk)
+        if not meta_configured():
+            messages.error(request, MSG_NOT_CONFIGURED)
+            return redirect("social:accounts")
+        try:
+            GraphClient.from_settings().get_page(account.external_id, account.get_token())
+        except MetaApiError as exc:
+            if exc.is_token_error:
+                account.status = SocialAccount.Status.NEEDS_REAUTH
+                account.last_error = f"Meta erro {exc.code}"
+                account.last_checked_at = timezone.now()
+                account.save(update_fields=["status", "last_error", "last_checked_at", "updated_at"])
+                messages.warning(request, f"Reconexão necessária para “{account.name}”.")
+            else:
+                messages.error(request, "Não foi possível verificar agora. Tente novamente em instantes.")
+            return redirect("social:accounts")
+        except TokenCryptoError:
+            messages.error(request, "Não foi possível verificar agora. Tente novamente em instantes.")
+            return redirect("social:accounts")
+
+        account.status = SocialAccount.Status.ACTIVE
+        account.last_error = ""
+        account.last_checked_at = timezone.now()
+        account.save(update_fields=["status", "last_error", "last_checked_at", "updated_at"])
+        messages.success(request, f"“{account.name}” está conectada e funcionando.")
+        return redirect("social:accounts")
+
+
+class AccountDisconnectView(AccountActionView):
+    """Apaga a conta e o token localmente."""
+
+    def post(self, request, pk):
+        account = self.get_account(request, pk)
+        name = account.name
+        account.delete()
+        logger.info("account_disconnected")
+        messages.success(request, f"“{name}” foi desconectada.")
         return redirect("social:accounts")

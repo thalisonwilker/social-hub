@@ -44,6 +44,12 @@
     document.body.classList.toggle("overflow-hidden", open);
   }
 
+  // Formulários com data-confirm pedem confirmação antes de enviar (ex.: desconectar).
+  document.addEventListener("submit", function (event) {
+    var message = event.target.getAttribute("data-confirm");
+    if (message && !window.confirm(message)) event.preventDefault();
+  });
+
   document.addEventListener("keydown", function (event) {
     if (event.key === "Escape") toggleSidebar(false);
   });
