@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Social Hub">
+  <rect width="512" height="512" fill="#161618"/>
+  <rect x="8" y="8" width="496" height="496" fill="none" stroke="#2d2d33" stroke-width="2"/>
+  <!-- Camadas empilhadas: várias redes, um só hub -->
+  <path d="M256 112 L402 184 L256 256 L110 184 Z" fill="#fb923c"/>
+  <path d="M110 250 L256 322 L402 250" fill="none" stroke="#fb923c" stroke-opacity=".72" stroke-width="30" stroke-linejoin="miter"/>
+  <path d="M110 316 L256 388 L402 316" fill="none" stroke="#fb923c" stroke-opacity=".4" stroke-width="30" stroke-linejoin="miter"/>
+  <!-- Realce superior discreto (profundidade) -->
+  <path d="M256 112 L402 184 L256 256 L110 184 Z" fill="none" stroke="#fff" stroke-opacity=".25" stroke-width="2"/>
+</svg>
