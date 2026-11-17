@@ -26,7 +26,7 @@
     <div>
       <label class="label" for="{{ form.image.id_for_label }}">Imagem</label>
       {{ form.image }}
-      <p class="mt-1 text-xs text-muted">JPEG ou PNG, até 8 MB; os metadados (como localização) são removidos. <strong class="font-medium text-fg">Obrigatória se marcar uma Página do Facebook.</strong> No Threads, vai junto com o texto (proporção até 10:1).</p>
+      <p class="mt-1 text-xs text-muted">JPEG ou PNG, até 8 MB; os metadados (como localização) são removidos. <strong class="font-medium text-fg">Obrigatória se marcar uma Página do Facebook.</strong> No Threads, vai junto com o texto (proporção até 10:1). No WhatsApp, vai como Status, com o texto de legenda.</p>
       {% for error in form.image.errors %}<p class="mt-1 text-xs text-danger">{{ error }}</p>{% endfor %}
     </div>
 
@@ -48,7 +48,7 @@
                    {% if account.pk|stringformat:"s" in selected %}checked{% endif %}>
             <span class="min-w-0 flex-1">
               <span class="block truncate font-medium">{{ account.name }}{% if account.username %} <span class="font-normal text-muted">@{{ account.username }}</span>{% endif %}</span>
-              <span class="block truncate text-xs text-muted">{% if account.platform == 'threads' %}Perfil do Threads{% else %}{{ account.category|default:"Página do Facebook" }}{% endif %}</span>
+              <span class="block truncate text-xs text-muted">{% if account.platform == 'threads' %}Perfil do Threads{% elif account.platform == 'whatsapp_status' %}Status do WhatsApp · instância {{ account.external_id }}{% else %}{{ account.category|default:"Página do Facebook" }}{% endif %}</span>
             </span>
             {% if account.unavailable_reason %}
               <span class="badge badge-warn">{{ account.unavailable_reason }}</span>
@@ -66,6 +66,9 @@
       {% endif %}{% endfor %}
       {% for account in threads_accounts %}{% if account.needs_reauth %}
         <p class="mt-2 text-xs text-muted">O perfil “{{ account.name }}” precisa ser reconectado em <a class="text-accent hover:underline" href="{% url 'social:accounts' %}">Contas conectadas</a>.</p>
+      {% endif %}{% endfor %}
+      {% for account in whatsapp_accounts %}{% if account.needs_reauth %}
+        <p class="mt-2 text-xs text-muted">O número “{{ account.name }}” está desconectado: reconecte o número na Evolution e atualize a chave em <a class="text-accent hover:underline" href="{% url 'social:accounts' %}">Contas conectadas</a>.</p>
       {% endif %}{% endfor %}
     </fieldset>
   </div>

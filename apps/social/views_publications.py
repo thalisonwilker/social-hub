@@ -8,7 +8,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views import View
 from django.views.generic import TemplateView
 
-from .conf import meta_configured, threads_configured
+from .conf import evolution_configured, meta_configured, threads_configured
 from .forms import PublicationForm
 from .models import Publication, SocialAccount
 from .services import publishing, threads_tokens
@@ -16,8 +16,9 @@ from .services import publishing, threads_tokens
 logger = logging.getLogger("apps.social.meta")
 
 MSG_NOT_CONFIGURED = "Integração com a Meta não configurada."
-MSG_NO_ACTIVE_PAGES = "Conecte ao menos uma Página ativa ou um perfil do Threads antes de publicar."
+MSG_NO_ACTIVE_PAGES = "Conecte ao menos uma Página ativa, um perfil do Threads ou um número de WhatsApp antes de publicar."
 MSG_THREADS_NOT_CONFIGURED = "Integração com o Threads não configurada."
+MSG_WHATSAPP_NOT_CONFIGURED = "Integração com o WhatsApp não configurada."
 MSG_SAVE_FAILED = "Não foi possível salvar a publicação. Tente novamente."
 CONFIRM = "Será publicado de verdade nas Páginas selecionadas. Continuar?"
 
@@ -61,12 +62,14 @@ class PostNewView(View):
     PLATFORM_LABELS = {
         SocialAccount.Platform.FACEBOOK_PAGE: "Integração com a Meta não configurada",
         SocialAccount.Platform.THREADS: MSG_THREADS_NOT_CONFIGURED,
+        SocialAccount.Platform.WHATSAPP_STATUS: MSG_WHATSAPP_NOT_CONFIGURED,
     }
 
     def _configured(self):
         return {
             SocialAccount.Platform.FACEBOOK_PAGE: meta_configured(),
             SocialAccount.Platform.THREADS: threads_configured(),
+            SocialAccount.Platform.WHATSAPP_STATUS: evolution_configured(),
         }
 
     def _destinations(self, request):
@@ -76,7 +79,11 @@ class PostNewView(View):
         accounts = list(
             SocialAccount.objects.filter(
                 owner=request.user,
-                platform__in=[SocialAccount.Platform.FACEBOOK_PAGE, SocialAccount.Platform.THREADS],
+                platform__in=[
+                    SocialAccount.Platform.FACEBOOK_PAGE,
+                    SocialAccount.Platform.THREADS,
+                    SocialAccount.Platform.WHATSAPP_STATUS,
+                ],
             )
         )
         for account in accounts:
@@ -100,12 +107,18 @@ class PostNewView(View):
     def _render(self, request, form, accounts, *, blocked=None, status=200):
         facebook = [a for a in accounts if a.platform == SocialAccount.Platform.FACEBOOK_PAGE]
         threads = [a for a in accounts if a.platform == SocialAccount.Platform.THREADS]
+        whatsapp = [a for a in accounts if a.platform == SocialAccount.Platform.WHATSAPP_STATUS]
         context = {
             "page_title": "Nova publicação",
             "form": form,
             "facebook_accounts": facebook,
             "threads_accounts": threads,
-            "destination_groups": [("Páginas do Facebook", "facebook", facebook), ("Perfis do Threads", "at-sign", threads)],
+            "whatsapp_accounts": whatsapp,
+            "destination_groups": [
+                ("Páginas do Facebook", "facebook", facebook),
+                ("Perfis do Threads", "at-sign", threads),
+                ("Status do WhatsApp", "message-circle", whatsapp),
+            ],
             "selected": set(request.POST.getlist("accounts")),
             "blocked": blocked,
             "confirm_message": CONFIRM,

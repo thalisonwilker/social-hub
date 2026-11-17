@@ -9,6 +9,7 @@ from .textrules import THREADS_MAX_LINKS, THREADS_MAX_WEIGHT, count_unique_links
 
 FB = SocialAccount.Platform.FACEBOOK_PAGE
 THREADS = SocialAccount.Platform.THREADS
+WHATSAPP = SocialAccount.Platform.WHATSAPP_STATUS
 
 MSG_IMAGE_REQUIRED = "Escolha uma imagem (JPEG ou PNG)."
 MAX_ASPECT_RATIO = 10
@@ -20,11 +21,12 @@ MSG_PUBLIC_URL = (
 
 
 class PublicationForm(forms.Form):
-    """Publicação com destinos mistos (Páginas do Facebook e perfis do Threads). Ver ADR-0007.
+    """Publicação com destinos mistos (Páginas do Facebook, perfis do Threads e Status do WhatsApp). Ver ADR-0007.
 
     - Imagem: obrigatória apenas se houver Página do Facebook marcada; com Threads marcado ela também vai ao
       Threads (spec 0005): proporção ≤ 10:1 e endereço público HTTPS configurado.
     - Texto: até 5000; se houver Threads marcado, peso ≤ 500 e no máximo 5 links únicos.
+    - WhatsApp (spec 0006): imagem opcional (vai em base64, sem endereço público); sem limite de texto além do geral.
     """
 
     text = forms.CharField(
@@ -53,7 +55,7 @@ class PublicationForm(forms.Form):
         },
     )
 
-    def __init__(self, *args, user, platforms=(FB, THREADS), **kwargs):
+    def __init__(self, *args, user, platforms=(FB, THREADS, WHATSAPP), **kwargs):
         super().__init__(*args, **kwargs)
         self.sanitized = None  # imagem sanitizada (None quando não há imagem)
         # Só destinos ATIVOS do próprio usuário, de plataformas configuradas (outro usuário / reauth => escolha inválida).
