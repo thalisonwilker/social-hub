@@ -6,6 +6,7 @@
 """
 import logging
 import os
+import time
 from dataclasses import dataclass
 from datetime import timedelta
 
@@ -27,6 +28,8 @@ from .threads import ThreadsClient
 logger = logging.getLogger("apps.social.meta")
 
 STALE_SENDING = timedelta(minutes=5)
+MIN_SECONDS_TO_START_TARGET = 40  # não inicia novo alvo com menos que isso no orçamento (ADR-0009)
+WAIT_SAFETY_MARGIN = 25  # a espera do container sempre deixa esta folga para publicar e gravar
 POST_URL = "https://www.facebook.com/{post_id}"
 
 MSG_REAUTH = "Reconexão necessária para esta Página."
@@ -119,29 +122,40 @@ def send_pending(
     client: GraphClient | None = None,
     threads_client: ThreadsClient | None = None,
     batch_size: int | None = None,
+    clock=time.monotonic,
 ) -> BatchResult:
-    """Envia até `batch_size` alvos pendentes/falhos de qualquer plataforma. Alvos `published` nunca são tocados."""
+    """Envia até `batch_size` alvos pendentes/falhos de qualquer plataforma. Alvos `published` nunca são tocados.
+
+    O lote é um TETO; o tempo manda (ADR-0009): com menos de 40 s restantes do orçamento
+    (`PUBLISH_REQUEST_BUDGET_SECONDS`) nenhum novo alvo é iniciado e o resto fica `pending`.
+    """
     limit = batch_size or settings.PUBLISH_BATCH_SIZE
+    started_at = clock()
+    budget = settings.PUBLISH_REQUEST_BUDGET_SECONDS
     candidates = list(
         publication.targets.filter(status__in=[S.PENDING, S.FAILED, S.SENDING]).select_related("account")
     )
     candidates.sort(key=lambda t: (t.status != S.PENDING, t.page_name, t.id))  # pendentes primeiro
 
     attempted = published = failed = 0
-    for target in candidates:
+    for index, target in enumerate(candidates):
         if attempted >= limit:
             break
         if target.account_id is None:  # conta desconectada: falha sem chamar a Meta
             if not (target.status == S.FAILED and target.error_message == MSG_DISCONNECTED):
                 _mark_failed(target, MSG_DISCONNECTED, "disconnected")
             continue
+        remaining_time = budget - (clock() - started_at)
+        if remaining_time < MIN_SECONDS_TO_START_TARGET:
+            logger.warning("publish_budget_exhausted remaining=%d", len(candidates) - index)
+            break
         claimed = claim_target(target.pk)
         if claimed is None:
             continue
         attempted += 1
         if claimed.platform == SocialAccount.Platform.THREADS:
             threads_client = threads_client or ThreadsClient.from_settings()
-            ok = _publish_threads_target(claimed, threads_client)
+            ok = _publish_threads_target(claimed, threads_client, max_wait=remaining_time - WAIT_SAFETY_MARGIN)
         else:
             client = client or GraphClient.from_settings()
             ok = _publish_target(claimed, client)
