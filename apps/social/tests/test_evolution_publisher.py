@@ -99,6 +99,7 @@ class WhatsAppPublisherTests(PublicationTestMixin, TestCase):
         api["send_status_image"].assert_called_once()
         args = api["send_status_image"].call_args.args
         self.assertEqual((args[0], args[1], args[2], args[3]), ("loja", KEY, expected, TEXT))
+        self.assertEqual(api["send_status_image"].call_args.kwargs["content_type"], "image/jpeg")
         api["send_status_text"].assert_not_called()
         target = self.target(pub)
         self.assertEqual((target.status, target.external_post_id), (S.PUBLISHED, "MSG-I"))

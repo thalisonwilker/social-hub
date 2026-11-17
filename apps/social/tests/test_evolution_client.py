@@ -60,6 +60,9 @@ class EvolutionSendStatusTests(SimpleTestCase):
         self.assertIs(body["allContacts"], True)
         self.assertNotIn("statusJidList", body)
         self.assertIsNone(kwargs.get("params"))
+        # a Evolution 2.3.x exige cor de fundo e fonte (0–5) no Status de texto
+        self.assertRegex(body["backgroundColor"], r"^#[0-9A-Fa-f]{6}$")
+        self.assertIn(body["font"], range(0, 6))
 
     def test_AC_9_image_status_sends_base64_with_the_text_as_caption(self):
         """AC-9: Status de imagem = um POST com o arquivo em base64 (sem URL pública) e o texto como legenda."""
@@ -69,11 +72,21 @@ class EvolutionSendStatusTests(SimpleTestCase):
         self.assertEqual((method, url), ("POST", f"{BASE}/message/sendStatus/minha-instancia"))
         body = kwargs["json"]
         self.assertEqual(body["type"], "image")
-        self.assertEqual(body["content"], ENCODED)
-        self.assertEqual(base64.b64decode(body["content"]), IMAGE)
+        # data URI: na Evolution 2.3.7 base64 puro vira caminho de arquivo (ENAMETOOLONG no UAT)
+        self.assertEqual(body["content"], f"data:image/jpeg;base64,{ENCODED}")
+        self.assertEqual(base64.b64decode(body["content"].split(",", 1)[1]), IMAGE)
         self.assertEqual(body["caption"], TEXT)
         self.assertIs(body["allContacts"], True)
         self.assertNotIn("http", body["content"])
+        self.assertNotIn("backgroundColor", body)  # cor/fonte só valem no Status de texto
+
+    def test_AC_9_data_uri_follows_the_image_content_type(self):
+        """AC-9: o prefixo do data URI segue o tipo da imagem (PNG); tipo desconhecido cai em JPEG."""
+        for given, expected in (("image/png", "image/png"), ("image/jpeg", "image/jpeg"), ("image/gif", "image/jpeg"), ("", "image/jpeg")):
+            with self.subTest(given=given):
+                client, session = make_client(FakeResponse({}))
+                client.send_status_image("i", INSTANCE_KEY, IMAGE, TEXT, content_type=given)
+                self.assertTrue(last(session)[1]["json"]["content"].startswith(f"data:{expected};base64,"))
 
     def test_AC_8_response_without_message_id_is_still_success(self):
         """AC-8: o id da mensagem é opcional; sem ele devolve string vazia."""

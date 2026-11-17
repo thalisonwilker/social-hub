@@ -138,7 +138,7 @@ Dívida assumida: sem idempotência forte em timeout após envio (mesma janela d
 | 2 | Lista de contatos, grupos/canais, vídeo | 1 |
 
 ## Questões em aberto
-- [ ] **Contrato do endpoint** (corpo plano × `statusMessage`; base64 com/sem `data:`; resposta): confirmar na sua instância/versão (task 7).
+- [~] **Contrato do endpoint** — Evolution **2.3.7** (sua instância). Confirmado: corpo **plano**, rota `POST /message/sendStatus/{instância}`, `connectionState` → `instance.state`; texto exige `backgroundColor` e `font`; imagem em **base64 puro falha** (`ENAMETOOLONG`, tratado como caminho de arquivo) → o cliente envia **data URI** `data:<tipo>;base64,...`. A confirmar no UAT: o data URI publica de fato, e `allContacts` (contatos com nome conhecidos pela instância).
 - [ ] **Limite de texto** do Status e peso da legenda da imagem: não documentado → não validar até o UAT.
 - [ ] **Estado da conexão:** endpoint e valores de `state` a confirmar (`open`/`close`/`connecting`).
 - [x] ADR-0010 (credenciais por instância + host fixo + Baileys) — escrito na T9.

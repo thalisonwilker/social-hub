@@ -48,6 +48,8 @@ alwaysApply: false
 - 2026-11-17 · testes Django · Um helper chamado `publish` num TestCase com `PublicationTestMixin` é sombreado pelo mock `self.publish` (instância) e chama o Graph sem querer · nomear `do_publish`.
 - 2026-11-17 · WhatsApp/Baileys · Não é oficial: envio frequente pode banir o número, e o Status não é apagável pelo Hub · testar com número próprio e uso manual/esporádico.
 - 2026-11-17 · testes/Docker · O `.dockerignore` exclui `README.md` (e `Dockerfile`) da imagem: testes que leem esses arquivos quebram no gate do container · usar `unittest.skipUnless(arquivo.exists())` (rodam localmente, pulam no container).
+- 2026-11-17 · Evolution 2.3.7/Status · `content` de imagem é repassado como `image.url`: base64 PURO é lido como caminho de arquivo (`ENAMETOOLONG ... open '/9j/4AAQ...'` no log da Evolution) · enviar como data URI (`data:image/jpeg;base64,...`); o corpo de texto exige `backgroundColor` e `font`.
+- 2026-11-17 · Evolution/log · O log da própria Evolution (container dela) mostra o motivo real de um Status recusado; o Hub não loga o corpo da resposta de propósito · para depurar o contrato, rode `scripts/uat_evolution.py` e olhe o log da Evolution.
 
 ## Promovidas (histórico curto)
 > Rastro de para onde foram as lições podadas — só o link, sem reexplicar. Poda este histórico também.

@@ -20,6 +20,9 @@ from apps.social.validators import is_valid_instance_name
 logger = logging.getLogger("apps.social.meta")
 
 STATUS_PATH = "message/sendStatus/{instance}"
+STATUS_TEXT_BACKGROUND = "#128C7E"  # verde do WhatsApp (a confirmar no UAT)
+STATUS_TEXT_FONT = 1
+IMAGE_CONTENT_TYPES = ("image/jpeg", "image/png")
 STATE_PATH = "instance/connectionState/{instance}"
 
 
@@ -73,15 +76,28 @@ class EvolutionClient:
         body = self._status_body("text", content=text)
         return self._extract_message_id(self._request("POST", STATUS_PATH, "sendStatus", instance, key, body=body, timeout=timeout))
 
-    def send_status_image(self, instance: str, key: str, image: bytes, text: str, *, timeout=None) -> str:
-        """Publica um Status de imagem (base64, sem URL pública) com `text` como legenda. Devolve o id (ou "")."""
-        body = self._status_body("image", content=base64.b64encode(image).decode("ascii"), caption=text)
+    def send_status_image(
+        self, instance: str, key: str, image: bytes, text: str, *, content_type: str = "image/jpeg", timeout=None
+    ) -> str:
+        """Publica um Status de imagem (sem URL pública) com `text` como legenda. Devolve o id (ou "").
+
+        A imagem vai como **data URI** (`data:<tipo>;base64,<...>`): na Evolution 2.3.7 o `content` de imagem é repassado como
+        `image.url`, e base64 puro é tratado como CAMINHO de arquivo (`ENAMETOOLONG ... open '/9j/4AAQ...'`, observado no UAT).
+        """
+        if content_type not in IMAGE_CONTENT_TYPES:
+            content_type = "image/jpeg"
+        encoded = base64.b64encode(image).decode("ascii")
+        body = self._status_body("image", content=f"data:{content_type};base64,{encoded}", caption=text)
         return self._extract_message_id(self._request("POST", STATUS_PATH, "sendStatus", instance, key, body=body, timeout=timeout))
 
     # --- contrato (a confirmar no UAT) ---------------------------------------------
     @staticmethod
     def _status_body(kind: str, *, content: str, caption: str = "") -> dict:
         body = {"type": kind, "content": content, "allContacts": True}
+        if kind == "text":
+            # O Status de texto da Evolution 2.3.x exige cor de fundo e fonte (fonte inteira 0–5 no schema); valores fixos, sem opção no Hub.
+            body["backgroundColor"] = STATUS_TEXT_BACKGROUND
+            body["font"] = STATUS_TEXT_FONT
         if caption:
             body["caption"] = caption
         return body

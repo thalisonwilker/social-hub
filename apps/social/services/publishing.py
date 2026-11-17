@@ -315,7 +315,10 @@ def _publish_whatsapp_target(target: PublicationTarget, client: EvolutionClient 
         if publication.has_image:
             with publication.image.open("rb") as fh:
                 image = fh.read()
-            message_id = client.send_status_image(account.external_id, key, image, publication.text, timeout=timeout)
+            message_id = client.send_status_image(
+                account.external_id, key, image, publication.text,
+                content_type=publication.image_content_type, timeout=timeout,
+            )
         else:
             message_id = client.send_status_text(account.external_id, key, publication.text, timeout=timeout)
     except TokenCryptoError:
