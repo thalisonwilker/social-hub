@@ -30,6 +30,18 @@ class SanitizedImage:
     content: ContentFile  # nome aleatório já definido
     content_type: str
     extension: str
+    width: int = 0
+    height: int = 0
+
+    def aspect_ratio_within(self, limit: float) -> bool:
+        """True se max(l,a)/min(l,a) <= limit (nos dois sentidos)."""
+        return aspect_ratio_within(self.width, self.height, limit)
+
+
+def aspect_ratio_within(width: int, height: int, limit: float) -> bool:
+    if width <= 0 or height <= 0:
+        return False
+    return max(width, height) <= limit * min(width, height)
 
 
 def sanitize_image(upload) -> SanitizedImage:
@@ -58,6 +70,7 @@ def sanitize_image(upload) -> SanitizedImage:
 
     content_type, extension = ALLOWED_FORMATS[fmt]
     image = ImageOps.exif_transpose(image)  # aplica a orientação ANTES de descartar o EXIF
+    width, height = image.size  # após a orientação (a proporção vale para a imagem final)
     out = io.BytesIO()
     if content_type == "image/jpeg":
         if image.mode != "RGB":
@@ -66,4 +79,4 @@ def sanitize_image(upload) -> SanitizedImage:
     else:
         image.save(out, format="PNG", optimize=True)  # sem pnginfo: chunks de texto/EXIF descartados
     name = f"{uuid.uuid4().hex}{extension}"
-    return SanitizedImage(content=ContentFile(out.getvalue(), name=name), content_type=content_type, extension=extension)
+    return SanitizedImage(content=ContentFile(out.getvalue(), name=name), content_type=content_type, extension=extension, width=width, height=height)

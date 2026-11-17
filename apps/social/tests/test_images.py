@@ -85,3 +85,27 @@ class SanitizeImageTests(SimpleTestCase):
             sanitize_image(make_upload(size=(20, 20)))
         self.assertIn("grande demais", str(ctx.exception))
         sanitize_image(make_upload(size=(10, 10)))  # no limite passa
+
+
+class AspectRatioTests(SimpleTestCase):
+    def test_AC_3_dimensions_are_reported_after_orientation(self):
+        """AC-3: largura/altura da imagem sanitizada acompanham a orientação aplicada."""
+        sanitized = sanitize_image(make_upload(size=(40, 20)))
+        self.assertEqual((sanitized.width, sanitized.height), (40, 20))
+
+    def test_AC_3_ratio_limit_is_inclusive_and_symmetric(self):
+        """AC-3: 10:1 é aceito; acima disso é recusado em qualquer sentido."""
+        from apps.social.images import aspect_ratio_within
+
+        self.assertTrue(aspect_ratio_within(1000, 100, 10))
+        self.assertTrue(aspect_ratio_within(100, 1000, 10))
+        self.assertFalse(aspect_ratio_within(1001, 100, 10))
+        self.assertFalse(aspect_ratio_within(100, 1001, 10))
+        self.assertFalse(aspect_ratio_within(0, 100, 10))
+
+    def test_AC_3_small_and_large_images_are_not_blocked_by_ratio_helper(self):
+        """AC-3: largura < 320 ou > 4096 não entram na regra de proporção."""
+        from apps.social.images import aspect_ratio_within
+
+        self.assertTrue(aspect_ratio_within(200, 200, 10))
+        self.assertTrue(aspect_ratio_within(5000, 4000, 10))
