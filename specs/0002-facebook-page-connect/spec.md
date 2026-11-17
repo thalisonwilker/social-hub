@@ -6,7 +6,7 @@ alwaysApply: true
 
 # Spec — Conectar Página do Facebook
 
-> **Fonte da verdade.** Status: rascunho
+> **Fonte da verdade.** Status: implementado
 > Os critérios de aceite são o contrato, o oráculo de teste e o prompt de implementação.
 
 ## Resumo
