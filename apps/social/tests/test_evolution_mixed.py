@@ -134,7 +134,7 @@ class MixedDestinationsTests(PublicationTestMixin, TestCase):
     def test_AC_15_detail_shows_the_failure_and_offers_to_try_again(self):
         """AC-15: alvo do WhatsApp que falhou mostra a mensagem amigável e o botão "Tentar novamente"."""
         pub = self.make_pub([self.wa], image=False)
-        with evolution_mocks(text=err("timeout")):
+        with evolution_mocks(text=err("network")):
             publishing.send_pending(pub)
         response = self.detail(pub)
         self.assertContains(response, "Falha de comunicação com a Evolution.")

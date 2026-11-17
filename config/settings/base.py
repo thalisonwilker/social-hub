@@ -132,7 +132,7 @@ THREADS_IMAGE_WAIT_SECONDS = int(os.environ.get("THREADS_IMAGE_WAIT_SECONDS", "6
 # --- WhatsApp (Status) via Evolution API (spec 0006) ---------------------------------------------
 # Só a ORIGEM HTTPS conta; o usuário nunca informa o host (evita SSRF). A chave é por instância, cifrada no banco.
 EVOLUTION_API_URL = os.environ.get("EVOLUTION_API_URL", "")
-EVOLUTION_TIMEOUT_SECONDS = int(os.environ.get("EVOLUTION_TIMEOUT_SECONDS", "60"))
+EVOLUTION_TIMEOUT_SECONDS = int(os.environ.get("EVOLUTION_TIMEOUT_SECONDS", "120"))
 # Orçamento de tempo de uma requisição de envio (deve ser menor que o --timeout do Gunicorn).
 PUBLISH_REQUEST_BUDGET_SECONDS = int(os.environ.get("PUBLISH_REQUEST_BUDGET_SECONDS", "150"))
 

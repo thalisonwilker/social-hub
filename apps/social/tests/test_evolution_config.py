@@ -39,10 +39,10 @@ class EvolutionConfigTests(SimpleTestCase):
         self.assertFalse(conf.evolution_configured())
 
     def test_AC_12_timeout_comes_from_settings_with_a_default(self):
-        """AC-12: o timeout das chamadas vem de EVOLUTION_TIMEOUT_SECONDS (padrão 60)."""
+        """AC-12: o timeout das chamadas vem de EVOLUTION_TIMEOUT_SECONDS (padrão 120)."""
         from django.conf import settings
 
-        self.assertEqual(settings.EVOLUTION_TIMEOUT_SECONDS, 60)
+        self.assertEqual(settings.EVOLUTION_TIMEOUT_SECONDS, 120)
 
 
 class InstanceNameTests(SimpleTestCase):

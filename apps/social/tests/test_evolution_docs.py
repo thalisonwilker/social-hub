@@ -17,7 +17,7 @@ class EvolutionDocsTests(SimpleTestCase):
         """AC-17: `.env.example` traz EVOLUTION_API_URL e EVOLUTION_TIMEOUT_SECONDS, vazios/padrão, com o aviso do Baileys."""
         env = read(".env.example")
         self.assertIn("\nEVOLUTION_API_URL=\n", env)  # vazio: nenhum endereço real versionado
-        self.assertIn("\nEVOLUTION_TIMEOUT_SECONDS=60\n", env)
+        self.assertIn("\nEVOLUTION_TIMEOUT_SECONDS=120\n", env)
         self.assertIn("Baileys", env)
         self.assertIn("NÃO é oficial", env)
         self.assertIn("chave da instância", env.lower())

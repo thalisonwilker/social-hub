@@ -37,5 +37,5 @@ A documentação oficial do endpoint de Status não pôde ser lida na construç�
 - **+** Reaproveita idempotência, orçamento, histórico e reconexão já existentes.
 - **−** **Baileys não é oficial**: envio frequente pode levar ao **banimento do número**; o uso deve ser manual e esporádico (documentado no README e no `.env.example`).
 - **−** O contrato do Status (corpo, base64, resposta, estado) varia por versão e é fixado no UAT; até lá é hipótese isolada em `EvolutionClient`.
-- **−** Sem idempotência forte: timeout depois de a Evolution já ter enviado pode duplicar o Status num reenvio (mesma janela da issue #1).
+- **−** Sem idempotência forte: timeout depois de a Evolution já ter enviado **duplica** o Status num reenvio (mesma janela da issue #1; ocorreu no UAT com ~2265 contatos, onde o envio passou de 60 s). Mitigado com `EVOLUTION_TIMEOUT_SECONDS=120` e uma mensagem de timeout que avisa que o Status pode ter sido publicado.
 - **−** `external_id`/token com semântica por plataforma (documentada no glossário).

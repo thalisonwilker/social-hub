@@ -20,6 +20,7 @@ REAUTH = "Reconecte o número na Evolution."
 COMM = "Falha de comunicação com a Evolution."
 RATE = "Limite de requisições. Tente mais tarde."
 REJECTED = "A Evolution recusou este conteúdo."
+TIMEOUT = "A Evolution demorou a responder. O Status pode ter sido publicado: confira no celular antes de tentar novamente."
 
 
 @contextmanager
@@ -177,7 +178,7 @@ class WhatsAppPublisherTests(PublicationTestMixin, TestCase):
     def test_AC_12_other_failures_are_retryable_with_friendly_messages_and_keep_the_account(self):
         """AC-12: timeout/rede/5xx/resposta inválida, 429 e recusa → `failed` com mensagem do caso; conta intacta; código guardado."""
         cases = [
-            ("timeout", COMM), ("network", COMM), ("server", COMM), ("bad_response", COMM),
+            ("timeout", TIMEOUT), ("network", COMM), ("server", COMM), ("bad_response", COMM),
             ("rate_limit", RATE), ("rejected", REJECTED),
         ]
         for code, message in cases:
@@ -190,6 +191,22 @@ class WhatsAppPublisherTests(PublicationTestMixin, TestCase):
                 self.assertTrue(target.is_retryable)
                 self.wa.refresh_from_db()
                 self.assertEqual(self.wa.status, SocialAccount.Status.ACTIVE)
+
+    def test_AC_12_timeout_warns_that_the_status_may_already_be_published(self):
+        """AC-12: no tempo esgotado a mensagem avisa que o Status pode ter sido publicado; o reenvio continua possível (UAT: duplicou)."""
+        pub = self.make_pub()
+        with evolution_mocks(text=err("timeout")):
+            publishing.send_pending(pub)
+        target = self.target(pub)
+        self.assertIn("pode ter sido publicado", target.error_message)
+        self.assertIn("confira no celular", target.error_message)
+        self.assertLessEqual(len(target.error_message), 255)
+        self.assertEqual((target.status, target.error_code, target.is_retryable), (S.FAILED, "timeout", True))
+        # os demais erros de comunicação NÃO sugerem publicação
+        pub2 = self.make_pub()
+        with evolution_mocks(text=err("network")):
+            publishing.send_pending(pub2)
+        self.assertNotIn("pode ter sido publicado", self.target(pub2).error_message)
 
     def test_AC_12_state_probe_is_skipped_for_timeouts_and_network_errors(self):
         """AC-12: timeout/rede/limite não sondam o estado (a Evolution está inacessível ou limitando)."""

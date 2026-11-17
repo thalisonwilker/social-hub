@@ -211,9 +211,9 @@ formulário. Não há OAuth nem **QR** no Hub: o pareamento é feito na Evolutio
 ### Regras
 - A imagem é **opcional** com WhatsApp (continua obrigatória com Página do Facebook). Ela vai **em base64** na chamada: **não** precisa de túnel nem de `PUBLIC_BASE_URL`.
 - Se a instância cair ou a chave for recusada, a conta fica em **Reconexão necessária**: refaça o pareamento na Evolution e use **Atualizar chave** na tela de Contas.
-- Outras falhas (rede, tempo esgotado, limite) deixam o alvo como **Falhou**, e **Tentar novamente** o reenvia. Um timeout *depois* de a Evolution enviar pode duplicar o Status (limitação conhecida).
+- Outras falhas (rede, tempo esgotado, limite) deixam o alvo como **Falhou**, e **Tentar novamente** o reenvia. Se o Hub der **timeout**, a Evolution pode ter concluído o envio depois (observado com ~2265 contatos): **confira no celular antes de Tentar novamente**, ou o Status sai duplicado (limitação conhecida).
 - O host da Evolution vem **só** do servidor; o usuário nunca informa endereço. Chave, imagem e texto não vão para logs.
-- Variáveis: `EVOLUTION_API_URL` (HTTPS) e `EVOLUTION_TIMEOUT_SECONDS` (`60`; o tempo real é limitado pelo orçamento da requisição).
+- Variáveis: `EVOLUTION_API_URL` (HTTPS) e `EVOLUTION_TIMEOUT_SECONDS` (`120`; o tempo real é limitado pelo orçamento da requisição). Com muitos contatos a Evolution leva mais de 1 min para distribuir o Status.
 
 ## Configuração (variáveis de ambiente)
 
@@ -230,7 +230,7 @@ formulário. Não há OAuth nem **QR** no Hub: o pareamento é feito na Evolutio
 | `GUNICORN_WORKERS` | `2` | Workers do Gunicorn |
 | `META_*` | — | Integração com o Facebook (veja a seção acima) |
 | `THREADS_*` | — | Integração com o Threads (veja a seção acima) |
-| `EVOLUTION_*` | — | WhatsApp (Status) via Evolution API: `EVOLUTION_API_URL` (HTTPS) e `EVOLUTION_TIMEOUT_SECONDS` (`60`) |
+| `EVOLUTION_*` | — | WhatsApp (Status) via Evolution API: `EVOLUTION_API_URL` (HTTPS) e `EVOLUTION_TIMEOUT_SECONDS` (`120`) |
 | `PUBLISH_BATCH_SIZE` | `5` | Teto de alvos enviados por requisição de publicação |
 | `PUBLIC_BASE_URL` | — | Endereço público HTTPS do Hub (imagem no Threads); vazio = origem do redirect do Threads |
 | `PUBLISH_REQUEST_BUDGET_SECONDS` | `150` | Orçamento de tempo de uma requisição de envio |

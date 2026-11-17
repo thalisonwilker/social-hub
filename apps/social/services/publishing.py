@@ -53,6 +53,7 @@ MSG_THREADS_NO_PUBLIC_URL = "O endereço público do Hub não está configurado:
 MSG_WHATSAPP_NOT_CONFIGURED = "Integração com o WhatsApp não configurada."
 MSG_WHATSAPP_REAUTH = "Reconecte o número na Evolution."
 MSG_WHATSAPP_NETWORK = "Falha de comunicação com a Evolution."
+MSG_WHATSAPP_TIMEOUT = "A Evolution demorou a responder. O Status pode ter sido publicado: confira no celular antes de tentar novamente."
 MSG_WHATSAPP_RATE_LIMIT = "Limite de requisições. Tente mais tarde."
 MSG_WHATSAPP_REJECTED = "A Evolution recusou este conteúdo."
 MSG_CREDENTIALS_WHATSAPP = "Não foi possível ler a chave desta instância. Atualize a conta."
@@ -352,6 +353,8 @@ def _whatsapp_failure_message(exc: EvolutionApiError, account: SocialAccount, ke
     if code in STATE_PROBE_CODES and _instance_not_open(client, account, key):
         evolution_connect.needs_reauth(account)
         return MSG_WHATSAPP_REAUTH
+    if code == "timeout":  # resultado incerto: a Evolution pode concluir depois que o Hub desistiu (UAT, ~2265 contatos)
+        return MSG_WHATSAPP_TIMEOUT
     if code == "rate_limit":
         return MSG_WHATSAPP_RATE_LIMIT
     if code == "rejected":

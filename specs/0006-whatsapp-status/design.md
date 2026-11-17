@@ -129,7 +129,7 @@ Dívida assumida: sem idempotência forte em timeout após envio (mesma janela d
 | Vazamento da chave | Chave envia mensagens pelo número | baixo × alto | Fernet; nunca em log/HTML; formulário sem eco; chave de instância, não a global |
 | SSRF | Host controlado pelo usuário | baixo × alto | host só do `.env` (HTTPS); nome da instância validado e codificado |
 | Tempo | base64 (+33%) + rede lenta | médio × médio | timeout limitado pelo orçamento restante (ADR-0009); falha reenviável |
-| Duplicidade | Timeout após o envio | médio × baixo | documentado; issue #1 |
+| Duplicidade | Timeout após o envio (ocorreu no UAT com ~2265 contatos: envio > 60 s) | alto × médio | timeout padrão 120 s; mensagem própria que manda conferir no celular; idempotência real fica para a fila (issue #1) |
 
 ## Roadmap da feature
 | Fase | Entrega | Depende de |

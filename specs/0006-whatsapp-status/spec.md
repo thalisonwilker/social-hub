@@ -76,7 +76,7 @@ O Hub passa a aceitar uma **instância da Evolution já pareada** como conta de 
 ### AC-12: Outras falhas são reenviáveis
 - **Dado** um alvo do WhatsApp
 - **Quando** a Evolution falha por tempo esgotado, erro de rede, erro 5xx, limite de requisições ou recusa do conteúdo (matriz de envio)
-- **Então** o alvo fica `failed` com mensagem **amigável** do caso (nunca o texto cru da Evolution) e código curto, a conta **não** muda de status e "Tentar novamente" o reenvia
+- **Então** o alvo fica `failed` com mensagem **amigável** do caso (nunca o texto cru da Evolution) e código curto, a conta **não** muda de status e "Tentar novamente" o reenvia; no **tempo esgotado** a mensagem avisa que o **Status pode ter sido publicado** e manda conferir no celular antes de tentar de novo (UAT: com ~2265 contatos a Evolution concluiu depois de o Hub desistir)
 
 ### AC-13: Orçamento de tempo
 - **Dado** a requisição de envio com orçamento (ADR-0009)
@@ -139,13 +139,14 @@ O Hub passa a aceitar uma **instância da Evolution já pareada** como conta de 
 | 401/403 | `failed` | → `needs_reauth` | "Reconecte o número na Evolution" | AC-11 |
 | 404 (instância inexistente) | `failed` | → `needs_reauth` | "Reconecte o número na Evolution" | AC-11 |
 | estado ≠ `open` | `failed` | → `needs_reauth` | "Reconecte o número na Evolution" | AC-11 |
-| timeout / rede / 5xx | `failed` | igual | "Falha de comunicação com a Evolution" | AC-12 |
+| timeout (sem resposta no prazo) | `failed` | igual | "A Evolution demorou a responder. O Status pode ter sido publicado: confira no celular antes de tentar novamente." | AC-12 |
+| rede / 5xx / resposta inválida | `failed` | igual | "Falha de comunicação com a Evolution" | AC-12 |
 | 429 | `failed` | igual | "Limite de requisições. Tente mais tarde." | AC-12 |
 | 400 / recusa de conteúdo | `failed` | igual | "A Evolution recusou este conteúdo" | AC-12 |
 | < 40 s de orçamento | `pending` (não iniciado) | igual | — | AC-13 |
 
 ## Casos de borda e erros
-- **Timeout depois de a Evolution já ter enviado:** o alvo falha e um reenvio pode **duplicar** o Status (janela conhecida, [issue #1](https://github.com/thalisonwilker/social-hub/issues/1)); documentado.
+- **Timeout depois de a Evolution já ter enviado:** o alvo falha e um reenvio **duplica** o Status (janela conhecida, [issue #1](https://github.com/thalisonwilker/social-hub/issues/1)); **observado no UAT** (audiência de ~2265 contatos, envio > 60 s). Mitigação: `EVOLUTION_TIMEOUT_SECONDS` padrão 120 e a mensagem de timeout que manda conferir no celular; idempotência real fica para a fila.
 - **Chave com espaços/quebras de linha ao colar:** removidos antes de validar; chave vazia é rejeitada.
 - **Resposta sem id da mensagem:** o alvo ainda vira `published` (o id é opcional); sem link.
 - **Resposta não-JSON ou fora do formato esperado:** `failed` com "Falha de comunicação com a Evolution"; o corpo cru nunca é logado.
