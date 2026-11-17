@@ -14,26 +14,31 @@ alwaysApply: true
 
 ## Em andamento / próximo passo
 > O que está aberto agora e a **próxima ação concreta** (não "continuar a feature" — diga o passo).
-- Feature ativa: `specs/0002-facebook-page-connect/` — implementada (tasks 1–11 feitas); falta **UAT real**.
-- Próximo passo: rodar o roteiro de UAT com a Página de teste em http://localhost:8080 (conectar → selecionar várias →
-  verificar → desconectar → reconectar). Se o login com `config_id` se comportar diferente do previsto, ajustar o fluxo
-  e revisar o ADR-0003. Depois, marcar a spec como `implementado` e abrir a próxima feature (insights ou publicação).
+- Feature ativa: `specs/0003-publicar-no-facebook/` — implementada (tasks 1–10); falta o **UAT real** (a 0002 já foi validada).
+- Próximo passo: rodar o roteiro de UAT com 2 Páginas de teste (publicar texto + imagem nas duas; forçar uma falha e **tentar de novo**;
+  conferir se o link do post abre — `facebook.com/{post_id}`; se houver 6+ Páginas, validar os lotes). Depois marcar a spec como
+  `implementado` e escolher a próxima feature (agendamento exige fila/worker; ou insights).
 
 ## Decisões recentes
 > Resumo cronológico. Se for difícil de reverter, vire um ADR e linke aqui.
 - 2026-11-17: tokens de Página criptografados com Fernet, chave no `.env` — [ADR-0002](architecture/adr/0002-tokens-de-pagina-criptografados-com-fernet.md)
 - 2026-11-17: OAuth com `config_id` + cliente Graph próprio no app `social`; Graph API fixada em v27.0 — [ADR-0003](architecture/adr/0003-integracao-meta-oauth-config-id-e-cliente-graph-proprio.md)
+- 2026-11-17: Publicação síncrona em lotes de 5, idempotente por claim atômico — [ADR-0004](architecture/adr/0004-publicacao-sincrona-em-lotes-idempotente.md)
+- 2026-11-17: Imagens sanitizadas (Pillow), volume `/media` e entrega por view autenticada — [ADR-0005](architecture/adr/0005-imagens-sanitizadas-volume-dedicado-e-entrega-autenticada.md)
 - 2026-11-17: Seleção multi-Página numa tela do Hub; Páginas pendentes ficam na sessão, com tokens cifrados (TTL 10 min).
 
 ## Bloqueios
-- [ ] UAT real da feature 0002 depende de você autorizar o app no Facebook com a Página de teste (login manual).
+- [ ] UAT real da feature 0003 depende de você publicar nas suas Páginas de teste (a publicação é real e não há exclusão pelo Hub).
 
 ## Ideias adiadas / backlog técnico
 - Cofre de segredos (Vault/KMS) para a chave Fernet → quando houver mais de um ambiente ou time.
 - Limitação de tentativas de login (ex.: django-axes) → antes de expor o sistema publicamente.
 - Lint e análise estática na CI (ruff, SAST) → ao configurar a esteira de CI.
-- Renovação automática de tokens e webhooks → junto com publicação/agendamento.
+- Renovação automática de tokens e webhooks → junto com o agendamento.
+- **Janela de duplicidade ao reenviar alvo `sending` preso** → [issue #1](https://github.com/thalisonwilker/social-hub/issues/1); revisitar ao introduzir fila/agendamento.
+- Limpeza automática de imagens antigas e armazenamento externo (S3) → quando o volume `/media` crescer.
 
 ## Todos soltos
 - [ ] Fazer backup da `META_TOKEN_ENCRYPTION_KEY` fora do repositório (perdê-la exige reconectar as Páginas).
+- [ ] Fazer backup do volume `media_data` (imagens do histórico de publicações).
 - [ ] Cadastrar política de privacidade e exclusão de dados no app Meta antes do modo Live / App Review.

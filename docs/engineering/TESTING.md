@@ -40,7 +40,8 @@ alwaysApply: false
 python -m venv .venv && .venv/bin/pip install -r requirements.txt
 .venv/bin/python manage.py test apps          # usa config.settings.dev
 ```
-Os testes não acessam a rede: a Graph API é sempre mockada (`apps/social/tests/helpers.py`). O gate oficial roda no
+Os testes não acessam a rede: a Graph API é sempre mockada (`apps/social/tests/helpers.py`); as imagens de teste são geradas
+com Pillow em memória e gravadas em diretório temporário (`publication_helpers.py`). O gate oficial roda no
 container, que reproduz o ambiente de produção.
 
 ## O que a CI executa

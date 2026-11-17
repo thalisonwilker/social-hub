@@ -1,3 +1,6 @@
+import shutil
+import tempfile
+
 from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
 from django.db import IntegrityError, transaction
@@ -15,6 +18,14 @@ class PublicationModelTests(TestCase):
         User = get_user_model()
         cls.alice = User.objects.create_user("alice", password="x")
         cls.bob = User.objects.create_user("bob", password="x")
+
+    def setUp(self):
+        # Nunca grava no MEDIA_ROOT real (volume de produção/desenvolvimento).
+        media = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, media, ignore_errors=True)
+        override = override_settings(MEDIA_ROOT=media)
+        override.enable()
+        self.addCleanup(override.disable)
 
     def publication(self, owner=None, text="Olá"):
         pub = Publication(owner=owner or self.alice, text=text, image_content_type="image/jpeg")

@@ -2,9 +2,9 @@
 
 Plataforma web para centralizar o gerenciamento e a publicação de conteúdos em redes sociais (Facebook, Instagram e Threads).
 
-> **Estado atual:** estrutura base, autenticação, dashboard (dados **demonstrativos**), infraestrutura Docker e a
-> **integração com Páginas do Facebook** (conectar, listar, verificar e desconectar).
-> Publicação, agendamento e insights reais **ainda não** foram implementados.
+> **Estado atual:** estrutura base, autenticação, dashboard (dados **demonstrativos**), infraestrutura Docker,
+> **integração com Páginas do Facebook** (conectar, listar, verificar e desconectar) e **publicação de texto + imagem
+> em uma ou várias Páginas**. Agendamento e insights reais **ainda não** foram implementados.
 
 ## Stack
 
@@ -71,14 +71,14 @@ apps/
   core/                 Healthcheck, navegação da sidebar, view de páginas reservadas
   accounts/             Login, logout, perfil, troca de senha, comando ensure_admin
   dashboard/            Dashboard (dados fictícios em demo.py)
-  social/               Integração com a Meta: contas conectadas, OAuth, cliente Graph API, criptografia de tokens
+  social/               Integração com a Meta: contas, OAuth, cliente Graph API, tokens cifrados, publicações e imagens
 templates/              layout.html (sidebar + header + conteúdo), partials, páginas
 frontend/               Fonte do Tailwind (input.css, tailwind.config.js) e cópia de vendors
 static/js/app.js        Tema claro/escuro, menu mobile e Lucide
 static/dist/            Assets compilados (não versionado; gerado por `npm run build`)
 docker/entrypoint.sh    migrate + criação do admin + start do Gunicorn
 Dockerfile              Multi-stage: Node compila o frontend, Python executa o app
-docker-compose.yml      Serviço web + volume `sqlite_data`
+docker-compose.yml      Serviço web + volumes `sqlite_data` (banco) e `media_data` (imagens)
 ```
 
 Decisões relevantes:
@@ -120,6 +120,23 @@ Sem essas variáveis o sistema sobe normalmente e *Contas conectadas* mostra "In
 - Desconectar uma Página apaga o token só no Social Hub; para revogar de vez, remova o app em *Configurações do Facebook → Integrações*.
 - Em produção o `META_REDIRECT_URI` precisa ser **HTTPS** (`DJANGO_SECURE_SSL=true` atrás de um proxy com TLS).
 
+## Publicações (texto + imagem em várias Páginas)
+
+Em **Publicações → Nova publicação**: escreva o texto (até 5000 caracteres), anexe **uma imagem** (JPEG ou PNG, até 8 MB),
+marque **uma ou várias Páginas** ativas e clique em *Publicar agora*. O resultado aparece **por Página** (link do post ou o
+motivo do erro) e você pode **tentar de novo só as que falharam**. Detalhes: `specs/0003-publicar-no-facebook/`.
+
+- **Teste primeiro em Páginas de teste:** a publicação é real e o Hub **não** exclui nem edita posts já publicados.
+- **Lotes:** cada clique envia até 5 Páginas (`PUBLISH_BATCH_SIZE`). Com mais de 5, use **Continuar envio**.
+- **Sem duplicar:** uma Página já publicada nunca é reenviada; cliques duplos não geram posts repetidos.
+- **Imagens:** são validadas e **re-encodadas** (metadados como localização são removidos), guardadas no volume
+  `media_data` (`/media`) e entregues só ao dono, sem URL pública.
+- **Timeout:** o Gunicorn roda com `--timeout 180` (5 uploads de até 30 s por lote).
+- **Backup do volume de imagens:** sem ele o histórico perde as miniaturas (os posts já publicados na Meta não são afetados).
+  Exemplo: `docker run --rm -v social-hub_media_data:/media -v "$PWD":/backup alpine tar czf /backup/media.tgz -C /media .`
+- **Limitação conhecida:** se o servidor cair exatamente entre a Meta publicar e o Hub registrar o resultado, o reenvio
+  (após 5 min) pode duplicar o post. Tratamento em [issue #1](https://github.com/thalisonwilker/social-hub/issues/1).
+
 ## Configuração (variáveis de ambiente)
 
 | Variável | Padrão | Descrição |
@@ -134,6 +151,8 @@ Sem essas variáveis o sistema sobe normalmente e *Contas conectadas* mostra "In
 | `WEB_PORT` | `8000` | Porta publicada no host |
 | `GUNICORN_WORKERS` | `2` | Workers do Gunicorn |
 | `META_*` | — | Integração com o Facebook (veja a seção acima) |
+| `PUBLISH_BATCH_SIZE` | `5` | Páginas enviadas por requisição de publicação |
+| `MEDIA_ROOT` | `/media` (Docker) | Pasta das imagens de publicação |
 
 ## Manutenção
 
@@ -160,4 +179,4 @@ docker compose cp web:/data/backup.sqlite3 ./backup.sqlite3
 
 ## Próximas etapas
 
-Insights reais na dashboard, publicação e agendamento, e as integrações com Instagram e Threads — todos no app `social`.
+Agendamento (exige fila/worker), insights reais na dashboard, mais de uma imagem/vídeo/só texto, e as integrações com Instagram e Threads — todos no app `social`.
