@@ -34,13 +34,14 @@ class MetaApiError(Exception):
 
 
 class GraphClient:
-    def __init__(self, *, app_id, app_secret, config_id, redirect_uri, version, timeout=10, session=None):
+    def __init__(self, *, app_id, app_secret, config_id, redirect_uri, version, timeout=10, upload_timeout=30, session=None):
         self.app_id = app_id
         self.app_secret = app_secret
         self.config_id = config_id
         self.redirect_uri = redirect_uri
         self.version = version
         self.timeout = timeout
+        self.upload_timeout = upload_timeout
         self.session = session or requests.Session()
 
     @classmethod
@@ -52,6 +53,7 @@ class GraphClient:
             redirect_uri=settings.META_REDIRECT_URI,
             version=settings.META_GRAPH_VERSION,
             timeout=settings.META_HTTP_TIMEOUT,
+            upload_timeout=settings.META_UPLOAD_TIMEOUT,
         )
 
     # --- OAuth -----------------------------------------------------------------
@@ -127,6 +129,26 @@ class GraphClient:
     def get_page(self, page_id: str, page_token: str) -> dict:
         return self._request("GET", page_id, params={"fields": "id,name"}, token=page_token)
 
+    # --- Publicação ------------------------------------------------------------
+    def publish_photo(self, page_id: str, page_token: str, *, image, filename: str, content_type: str, message: str) -> dict:
+        """Publica uma foto com legenda na Página (`POST /{page_id}/photos`, multipart).
+
+        O arquivo vai no corpo (nunca por URL pública). Devolve {"photo_id", "post_id"}.
+        """
+        data = self._request(
+            "POST",
+            f"{page_id}/photos",
+            data={"message": message, "published": "true"},
+            files={"source": (filename, image, content_type)},
+            token=page_token,
+            timeout=self.upload_timeout,
+        )
+        post_id = data.get("post_id") or data.get("id")
+        if not post_id:
+            logger.warning("graph_error endpoint=%s code=%s subcode=%s", "photos", "no_post_id", None)
+            raise MetaApiError("Resposta da Meta sem identificador do post.", code="bad_response", endpoint="photos")
+        return {"photo_id": data.get("id", ""), "post_id": str(post_id)}
+
     # --- Interno ---------------------------------------------------------------
     @staticmethod
     def _require_token(data: dict, endpoint: str) -> str:
@@ -136,12 +158,12 @@ class GraphClient:
             raise MetaApiError("Resposta da Meta sem token.", endpoint=endpoint)
         return token
 
-    def _request(self, method, path, *, params=None, data=None, token=None) -> dict:
+    def _request(self, method, path, *, params=None, data=None, files=None, token=None, timeout=None) -> dict:
         url = f"{GRAPH_BASE}/{self.version}/{path}"
         headers = {"Authorization": f"Bearer {token}"} if token else {}
         try:
             response = self.session.request(
-                method, url, params=params, data=data, headers=headers, timeout=self.timeout
+                method, url, params=params, data=data, files=files, headers=headers, timeout=timeout or self.timeout
             )
         except requests.RequestException:
             logger.warning("graph_error endpoint=%s code=%s subcode=%s", path, "network", None)
