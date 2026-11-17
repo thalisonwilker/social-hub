@@ -147,17 +147,20 @@ class ThreadsClient(BaseGraphClient):
             "POST",
             f"{user_id}/threads_publish",
             data={"creation_id": container_id, "access_token": token},
+            effect=True,  # chamada que cria o post: sem resposta = resultado desconhecido (spec 0007)
         )
-        return self._require_id(data, f"{user_id}/threads_publish")
+        return self._require_id(data, f"{user_id}/threads_publish", effect=True)
 
     def get_permalink(self, media_id: str, token: str) -> str:
         data = self._request("GET", media_id, params={"fields": "permalink", "access_token": token})
         return data.get("permalink", "") or ""
 
     @staticmethod
-    def _require_id(data: dict, endpoint: str) -> str:
+    def _require_id(data: dict, endpoint: str, *, effect: bool = False) -> str:
         value = data.get("id")
         if not value:
             logger.warning("graph_error endpoint=%s code=%s subcode=%s", endpoint, "no_id", None)
-            raise MetaApiError("Resposta do Threads sem identificador.", code="bad_response", endpoint=endpoint)
+            raise MetaApiError(
+                "Resposta do Threads sem identificador.", code="bad_response", endpoint=endpoint, outcome_unknown=effect
+            )
         return str(value)

@@ -185,10 +185,10 @@ class ThreadsClientTests(SimpleTestCase):
 
     def test_AC_20_network_error_and_invalid_json(self):
         """AC-20: falha de rede e resposta inválida viram erros reenviáveis (network/bad_response)."""
-        client, _ = make_client(requests.ConnectionError(f"falha {LONG}"))
+        client, _ = make_client(requests.ConnectionError(f"falha {LONG}"))  # sem detalhe → `interrupted` (spec 0007)
         with self.assertRaises(MetaApiError) as ctx:
             client.get_profile("1", LONG)
-        self.assertEqual(ctx.exception.code, "network")
+        self.assertEqual(ctx.exception.code, "interrupted")
         self.assertNotIn(LONG, str(ctx.exception))
         client, _ = make_client(FakeResponse(None, json_error=True))
         with self.assertRaises(MetaApiError) as ctx:

@@ -123,7 +123,7 @@ class GraphClientTests(SimpleTestCase):
         client, _ = make_client(requests.Timeout("lento"))
         with self.assertRaises(MetaApiError) as ctx:
             client.exchange_code("c")
-        self.assertEqual(ctx.exception.code, "network")
+        self.assertEqual(ctx.exception.code, "timeout")  # 0007: leitura esgotada (não é mais `network`)
 
     def test_AC_8_invalid_json_and_missing_token_become_meta_api_error(self):
         client, _ = make_client(FakeResponse(None, json_error=True))

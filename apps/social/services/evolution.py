@@ -17,6 +17,8 @@ import requests
 from apps.social import conf
 from apps.social.validators import is_valid_instance_name
 
+from .transport import classify_request_error
+
 logger = logging.getLogger("apps.social.meta")
 
 STATUS_PATH = "message/sendStatus/{instance}"
@@ -29,13 +31,16 @@ STATE_PATH = "instance/connectionState/{instance}"
 class EvolutionApiError(Exception):
     """Erro da Evolution ou de rede, já sanitizado (sem corpo de resposta, chave ou conteúdo).
 
-    `code`: not_configured, invalid_instance, auth, not_found, rate_limit, rejected, server, timeout, network, bad_response.
+    `code`: not_configured, invalid_instance, auth, not_found, rate_limit, rejected, server, network (nunca chegou),
+    timeout (leitura esgotada), interrupted (cortada depois de enviar), bad_response.
+    `outcome_unknown`: o `sendStatus` foi enviado e a resposta não veio (ou veio inválida depois de aceita): pode ter publicado.
     """
 
-    def __init__(self, message, *, code, status=None):
+    def __init__(self, message, *, code, status=None, outcome_unknown=False):
         super().__init__(message)
         self.code = code
         self.status = status
+        self.outcome_unknown = outcome_unknown
 
 
 def _code_for_status(status: int) -> str:
@@ -74,7 +79,9 @@ class EvolutionClient:
     def send_status_text(self, instance: str, key: str, text: str, *, timeout=None) -> str:
         """Publica um Status de texto para todos os contatos. Devolve o id da mensagem (ou "")."""
         body = self._status_body("text", content=text)
-        return self._extract_message_id(self._request("POST", STATUS_PATH, "sendStatus", instance, key, body=body, timeout=timeout))
+        return self._extract_message_id(
+            self._request("POST", STATUS_PATH, "sendStatus", instance, key, body=body, timeout=timeout, effect=True)
+        )
 
     def send_status_image(
         self, instance: str, key: str, image: bytes, text: str, *, content_type: str = "image/jpeg", timeout=None
@@ -88,7 +95,9 @@ class EvolutionClient:
             content_type = "image/jpeg"
         encoded = base64.b64encode(image).decode("ascii")
         body = self._status_body("image", content=f"data:{content_type};base64,{encoded}", caption=text)
-        return self._extract_message_id(self._request("POST", STATUS_PATH, "sendStatus", instance, key, body=body, timeout=timeout))
+        return self._extract_message_id(
+            self._request("POST", STATUS_PATH, "sendStatus", instance, key, body=body, timeout=timeout, effect=True)
+        )
 
     # --- contrato (a confirmar no UAT) ---------------------------------------------
     @staticmethod
@@ -119,7 +128,7 @@ class EvolutionClient:
         return state.lower()
 
     # --- transporte ------------------------------------------------------------------
-    def _request(self, method, path_template, label, instance, key, *, body=None, timeout=None) -> dict:
+    def _request(self, method, path_template, label, instance, key, *, body=None, timeout=None, effect=False) -> dict:
         if not is_valid_instance_name(instance):
             raise EvolutionApiError("Nome de instância inválido.", code="invalid_instance")
         url = f"{self.base_url}/{path_template.format(instance=instance)}"
@@ -127,12 +136,12 @@ class EvolutionClient:
             response = self.session.request(
                 method, url, json=body, headers={"apikey": key}, timeout=timeout or self.timeout
             )
-        except requests.Timeout:
-            self._log(label, None, "timeout")
-            raise EvolutionApiError("Tempo esgotado ao falar com a Evolution.", code="timeout") from None
-        except requests.RequestException:
-            self._log(label, None, "network")
-            raise EvolutionApiError("Falha de rede ao falar com a Evolution.", code="network") from None
+        except requests.RequestException as exc:
+            kind = classify_request_error(exc)  # network (nunca chegou) | timeout | interrupted (pode ter chegado)
+            self._log(label, None, kind)
+            raise EvolutionApiError(
+                "Falha de comunicação com a Evolution.", code=kind, outcome_unknown=effect and kind != "network"
+            ) from None
 
         status = response.status_code
         try:
@@ -145,7 +154,9 @@ class EvolutionClient:
             raise EvolutionApiError("A Evolution recusou a requisição.", code=code, status=status)
         if not isinstance(payload, dict):
             self._log(label, status, "bad_response")
-            raise EvolutionApiError("Resposta inválida da Evolution.", code="bad_response", status=status)
+            raise EvolutionApiError(
+                "Resposta inválida da Evolution.", code="bad_response", status=status, outcome_unknown=effect  # 2xx sem corpo válido
+            )
         if payload.get("error"):
             self._log(label, status, "rejected")
             raise EvolutionApiError("A Evolution recusou a requisição.", code="rejected", status=status)

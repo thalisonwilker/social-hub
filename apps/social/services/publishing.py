@@ -62,7 +62,7 @@ TOKEN_CODES = {102, 190}
 PERMISSION_CODES = {10, 200, 220}
 RATE_LIMIT_CODES = {4, 17, 32, 613}
 BLOCKED_CODES = {368}
-NETWORK_CODES = {"network", "bad_response"}
+NETWORK_CODES = {"network", "bad_response", "timeout", "interrupted"}
 
 S = PublicationTarget.Status
 

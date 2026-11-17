@@ -10,6 +10,8 @@ from urllib.parse import urlencode
 import requests
 from django.conf import settings
 
+from .transport import classify_request_error
+
 logger = logging.getLogger("apps.social.meta")
 
 GRAPH_BASE = "https://graph.facebook.com"
@@ -21,12 +23,14 @@ MAX_PAGES = 10  # limite de páginas de resultado ao listar /me/accounts
 class MetaApiError(Exception):
     """Erro da Graph API ou de rede, já sanitizado (sem corpo de resposta nem credenciais)."""
 
-    def __init__(self, message, *, code=None, subcode=None, status=None, endpoint=""):
+    def __init__(self, message, *, code=None, subcode=None, status=None, endpoint="", outcome_unknown=False):
         super().__init__(message)
         self.code = code
         self.subcode = subcode
         self.status = status
         self.endpoint = endpoint
+        # A chamada COM EFEITO foi enviada e a resposta não veio (ou veio inválida depois de aceita): pode ter publicado.
+        self.outcome_unknown = outcome_unknown
 
     @property
     def is_token_error(self) -> bool:
@@ -52,11 +56,13 @@ class BaseGraphClient:
             raise MetaApiError("Resposta da Meta sem token.", endpoint=endpoint)
         return token
 
-    def _request(self, method, path, *, params=None, data=None, files=None, token=None, timeout=None, versioned=True) -> dict:
+    def _request(self, method, path, *, params=None, data=None, files=None, token=None, timeout=None, versioned=True, effect=False) -> dict:
         """`token` vai no header Authorization (Facebook). `versioned=False` omite a versão do caminho (ex.: oauth do Threads).
 
         Credenciais exigidas pela API no corpo/consulta são passadas pelo chamador em `data`/`params`; este método
         nunca registra URL, parâmetros nem corpo de resposta.
+
+        `effect=True` marca a chamada que CRIA o post (spec 0007): se a resposta não veio, o resultado é desconhecido.
         """
         prefix = f"{self.base_url}/{self.version}" if versioned else self.base_url
         url = f"{prefix}/{path}"
@@ -65,9 +71,12 @@ class BaseGraphClient:
             response = self.session.request(
                 method, url, params=params, data=data, files=files, headers=headers, timeout=timeout or self.timeout
             )
-        except requests.RequestException:
-            logger.warning("graph_error endpoint=%s code=%s subcode=%s", path, "network", None)
-            raise MetaApiError("Falha de rede ao falar com a Meta.", code="network", endpoint=path) from None
+        except requests.RequestException as exc:
+            kind = classify_request_error(exc)  # network (nunca chegou) | timeout | interrupted (pode ter chegado)
+            logger.warning("graph_error endpoint=%s code=%s subcode=%s", path, kind, None)
+            raise MetaApiError(
+                "Falha de rede ao falar com a Meta.", code=kind, endpoint=path, outcome_unknown=effect and kind != "network"
+            ) from None
 
         try:
             payload = response.json()
@@ -76,7 +85,11 @@ class BaseGraphClient:
         if not isinstance(payload, dict):
             logger.warning("graph_error endpoint=%s code=%s subcode=%s", path, "bad_response", None)
             raise MetaApiError(
-                "Resposta inválida da Meta.", code="bad_response", status=response.status_code, endpoint=path
+                "Resposta inválida da Meta.",
+                code="bad_response",
+                status=response.status_code,
+                endpoint=path,
+                outcome_unknown=effect and response.status_code < 400,  # a Meta aceitou, mas o Hub não leu o resultado
             )
 
         error = payload.get("error")
@@ -203,9 +216,12 @@ class GraphClient(BaseGraphClient):
             files={"source": (filename, image, content_type)},
             token=page_token,
             timeout=self.upload_timeout,
+            effect=True,
         )
         post_id = data.get("post_id") or data.get("id")
         if not post_id:
             logger.warning("graph_error endpoint=%s code=%s subcode=%s", "photos", "no_post_id", None)
-            raise MetaApiError("Resposta da Meta sem identificador do post.", code="bad_response", endpoint="photos")
+            raise MetaApiError(
+                "Resposta da Meta sem identificador do post.", code="bad_response", endpoint="photos", outcome_unknown=True
+            )
         return {"photo_id": data.get("id", ""), "post_id": str(post_id)}

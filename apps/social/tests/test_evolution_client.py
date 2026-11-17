@@ -4,6 +4,7 @@ from unittest import mock
 
 import requests
 from django.test import SimpleTestCase, override_settings
+from urllib3.exceptions import MaxRetryError, NewConnectionError
 
 from apps.social.services.evolution import EvolutionApiError, EvolutionClient
 
@@ -149,7 +150,8 @@ class EvolutionErrorMappingTests(SimpleTestCase):
         """AC-12: timeout → `timeout`; falha de rede → `network`; corpo não-JSON ou não-objeto → `bad_response`."""
         cases = [
             (requests.Timeout("lento"), "timeout"),
-            (requests.ConnectionError("caiu"), "network"),
+            (requests.ConnectionError("caiu"), "interrupted"),  # sem detalhe: pode ter chegado (spec 0007)
+            (requests.ConnectionError(MaxRetryError(None, "/x", NewConnectionError(None, "recusada"))), "network"),
             (FakeResponse(None, json_error=True), "bad_response"),
             (FakeResponse(["lista"]), "bad_response"),
         ]
