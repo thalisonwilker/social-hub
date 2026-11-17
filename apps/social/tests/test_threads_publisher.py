@@ -48,6 +48,7 @@ class threads_mocks:
 
         defaults = {
             "create_text_container": {"return_value": "c-1"},
+            "create_image_container": {"return_value": "c-img-1"},
             "container_status": {"side_effect": status},
             "publish_container": {"return_value": "m-1"},
             "get_permalink": {"return_value": PERMALINK},
@@ -185,7 +186,7 @@ class ThreadsDispatchTests(PublicationTestMixin, TestCase):
         self.publish.assert_not_called()  # nenhuma chamada de foto do Facebook
 
     def test_AC_21_mixed_targets_each_follow_their_own_platform_flow(self):
-        """AC-21: Facebook recebe foto + texto como na 0003; Threads só texto; resultado por alvo."""
+        """AC-21: Facebook recebe foto + texto como na 0003; Threads imagem + texto (spec 0005); resultado por alvo."""
         page = self.make_accounts(1)[0]
         pub = self.publication([page, self.threads], image=True)
         with threads_mocks() as api:
@@ -195,8 +196,8 @@ class ThreadsDispatchTests(PublicationTestMixin, TestCase):
         self.assertEqual(self.publish.call_args.args[1], page.external_id)
         self.assertEqual(self.publish.call_args.kwargs["message"], TEXT)
         self.assertEqual(self.publish.call_args.kwargs["content_type"], "image/jpeg")
-        api["create_text_container"].assert_called_once()
-        self.assertNotIn("image", str(api["create_text_container"].call_args))
+        api["create_text_container"].assert_not_called()
+        api["create_image_container"].assert_called_once()
         fb, th = self.target(pub, "facebook_page"), self.target(pub, "threads")
         self.assertEqual(fb.permalink, f"https://www.facebook.com/{page.external_id}_77")
         self.assertEqual(th.permalink, PERMALINK)
@@ -205,7 +206,7 @@ class ThreadsDispatchTests(PublicationTestMixin, TestCase):
         """AC-21: Threads falha, Facebook publica; o retry reenvia só o Threads (Facebook nunca de novo)."""
         page = self.make_accounts(1)[0]
         pub = self.publication([page, self.threads], image=True)
-        with threads_mocks(create_text_container={"side_effect": MetaApiError("x", code="network")}):
+        with threads_mocks(create_image_container={"side_effect": MetaApiError("x", code="network")}):
             first = publishing.send_pending(pub)
         self.assertEqual((first.published, first.failed), (1, 1))
         self.assertEqual(pub.status, Publication.Status.FAILED)

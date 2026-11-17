@@ -111,7 +111,7 @@ class ThreadsSecurityFlowTests(PublicationTestMixin, TestCase):
         output = "\n".join(logs.output)
         for secret in (*ALL_SECRETS, TEXT, "https://", "access_token", "client_secret"):
             self.assertNotIn(secret, output)
-        for event in ("threads_oauth_started", "threads_connected", "threads_container_created", "publish_ok", "publish_batch"):
+        for event in ("threads_oauth_started", "threads_connected", "threads_image_container_created", "publish_ok", "publish_batch"):
             self.assertIn(event, output)
 
     def test_AC_25_tokens_are_encrypted_in_the_database_and_never_in_the_session(self):

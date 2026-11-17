@@ -168,13 +168,16 @@ class MixedFormTests(PublicationTestMixin, TestCase):
 
     # ---- AC-21 -----------------------------------------------------------
     def test_AC_21_mixed_post_publishes_each_platform_and_shows_both_results(self):
-        """AC-21: Facebook (foto + texto) e Threads (só texto) publicados; detalhe com os dois links."""
+        """AC-21: Facebook (foto + texto) e Threads (imagem + texto, spec 0005) publicados; detalhe com os dois links."""
         with threads_mocks() as api:
             response = self.client.post(
                 reverse(NEW), {"text": "Promo ☀️", "accounts": [self.page.pk, self.profile.pk], "image": make_upload()}, follow=True)
         self.assertContains(response, "Publicado em 2 Páginas")
         self.assertEqual(self.publish.call_count, 1)
-        api["create_text_container"].assert_called_once_with("900", "threads-long-token", "Promo ☀️")
+        api["create_text_container"].assert_not_called()
+        (user, token, text, image_url), _ = api["create_image_container"].call_args
+        self.assertEqual((user, token, text), ("900", "threads-long-token", "Promo ☀️"))
+        self.assertRegex(image_url, r"^https://[^/]+/publico/imagem\.jpg\?t=")
         self.assertContains(response, f"https://www.facebook.com/{self.page.external_id}_77")
         self.assertContains(response, PERMALINK)
         self.assertContains(response, "Perfil do Threads")

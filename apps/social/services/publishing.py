@@ -14,8 +14,9 @@ from django.db import transaction
 from django.db.models import F, Q
 from django.utils import timezone
 
-from apps.social.conf import threads_configured
+from apps.social.conf import public_url_configured, threads_configured
 from apps.social.crypto import TokenCryptoError
+from apps.social import public
 from apps.social.images import SanitizedImage
 from apps.social.models import Publication, PublicationTarget, SocialAccount
 
@@ -41,6 +42,9 @@ MSG_THREADS_NOT_CONFIGURED = "Integração com o Threads não configurada."
 MSG_THREADS_PENDING = "O Threads ainda está processando. Tente novamente."
 MSG_THREADS_REJECTED = "O Threads recusou o conteúdo desta publicação."
 MSG_THREADS_EXPIRED = "O envio ao Threads expirou. Tente novamente."
+MSG_THREADS_IMAGE_REJECTED = "O Threads não conseguiu processar a imagem. Tente novamente."
+MSG_THREADS_IMAGE_PENDING = "O Threads ainda está processando a imagem. Tente novamente."
+MSG_THREADS_NO_PUBLIC_URL = "O endereço público do Hub não está configurado: não dá para enviar a imagem ao Threads."
 
 TOKEN_CODES = {102, 190}
 PERMISSION_CODES = {10, 200, 220}
@@ -194,8 +198,11 @@ def _publish_target(target: PublicationTarget, client: GraphClient) -> bool:
     return True
 
 
-def _publish_threads_target(target: PublicationTarget, client: ThreadsClient) -> bool:
-    """Publica o texto no Threads. Só texto: nenhuma imagem é enviada. Resultado gravado no alvo."""
+def _publish_threads_target(target: PublicationTarget, client: ThreadsClient, *, max_wait: float | None = None) -> bool:
+    """Publica no Threads: imagem + texto se a publicação tem imagem, senão só texto. Resultado gravado no alvo.
+
+    Se o container de imagem não fica pronto o alvo FALHA (reenviável); nunca vira só texto (spec 0005).
+    """
     account, publication = target.account, target.publication
     if not threads_configured():
         _mark_failed(target, MSG_THREADS_NOT_CONFIGURED, "not_configured")
@@ -204,16 +211,33 @@ def _publish_threads_target(target: PublicationTarget, client: ThreadsClient) ->
         if not threads_tokens.ensure_fresh(account, client=client):  # expirado/recusado: a conta já virou needs_reauth
             _mark_failed(target, MSG_THREADS_REAUTH, "reauth")
             return False
-        outcome = threads_publish.publish_text(target, client, account.get_token(), publication.text)
+        token = account.get_token()
+        if publication.has_image:
+            if not target.external_container_id:
+                if not public_url_configured():
+                    _mark_failed(target, MSG_THREADS_NO_PUBLIC_URL, "no_public_url")
+                    return False
+                if not publication.image.storage.exists(publication.image.name):
+                    _mark_failed(target, MSG_IMAGE_MISSING, "image_missing")
+                    return False
+            outcome = threads_publish.publish_image(
+                target, client, token, publication.text, lambda: public.build_public_image_url(publication), max_wait=max_wait
+            )
+        else:
+            outcome = threads_publish.publish_text(target, client, token, publication.text)
     except TokenCryptoError:
         _mark_failed(target, MSG_CREDENTIALS, "crypto")
         return False
     except threads_publish.ContainerNotReady:
-        _mark_failed(target, MSG_THREADS_PENDING, "container_pending")  # mantém o container para retomar
+        message = MSG_THREADS_IMAGE_PENDING if publication.has_image else MSG_THREADS_PENDING
+        _mark_failed(target, message, "container_pending")  # mantém o container para retomar
         return False
     except threads_publish.ContainerFailed as exc:
         threads_publish.forget_container(target)  # próximo envio cria outro
-        message = MSG_THREADS_EXPIRED if exc.status == threads_publish.EXPIRED else MSG_THREADS_REJECTED
+        if publication.has_image:
+            message = MSG_THREADS_IMAGE_REJECTED
+        else:
+            message = MSG_THREADS_EXPIRED if exc.status == threads_publish.EXPIRED else MSG_THREADS_REJECTED
         _mark_failed(target, message, exc.status.lower())
         return False
     except MetaApiError as exc:
