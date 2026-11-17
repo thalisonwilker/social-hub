@@ -18,7 +18,7 @@ logger = logging.getLogger("apps.social.meta")
 MSG_NOT_CONFIGURED = "Integração com a Meta não configurada."
 MSG_NO_ACTIVE_PAGES = "Conecte ao menos uma Página ativa, um perfil do Threads ou um número de WhatsApp antes de publicar."
 MSG_THREADS_NOT_CONFIGURED = "Integração com o Threads não configurada."
-MSG_WHATSAPP_NOT_CONFIGURED = "Integração com o WhatsApp não configurada."
+MSG_WHATSAPP_NOT_CONFIGURED = publishing.MSG_WHATSAPP_NOT_CONFIGURED
 MSG_SAVE_FAILED = "Não foi possível salvar a publicação. Tente novamente."
 CONFIRM = "Será publicado de verdade nas Páginas selecionadas. Continuar?"
 

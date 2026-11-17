@@ -15,13 +15,14 @@ from django.db import transaction
 from django.db.models import F, Q
 from django.utils import timezone
 
-from apps.social.conf import public_url_configured, threads_configured
+from apps.social.conf import evolution_configured, public_url_configured, threads_configured
 from apps.social.crypto import TokenCryptoError
 from apps.social import public
 from apps.social.images import SanitizedImage
 from apps.social.models import Publication, PublicationTarget, SocialAccount
 
-from . import threads_publish, threads_tokens
+from . import evolution_connect, threads_publish, threads_tokens
+from .evolution import EvolutionApiError, EvolutionClient
 from .meta import GraphClient, MetaApiError
 from .threads import ThreadsClient
 
@@ -48,6 +49,13 @@ MSG_THREADS_EXPIRED = "O envio ao Threads expirou. Tente novamente."
 MSG_THREADS_IMAGE_REJECTED = "O Threads não conseguiu processar a imagem. Tente novamente."
 MSG_THREADS_IMAGE_PENDING = "O Threads ainda está processando a imagem. Tente novamente."
 MSG_THREADS_NO_PUBLIC_URL = "O endereço público do Hub não está configurado: não dá para enviar a imagem ao Threads."
+
+MSG_WHATSAPP_NOT_CONFIGURED = "Integração com o WhatsApp não configurada."
+MSG_WHATSAPP_REAUTH = "Reconecte o número na Evolution."
+MSG_WHATSAPP_NETWORK = "Falha de comunicação com a Evolution."
+MSG_WHATSAPP_RATE_LIMIT = "Limite de requisições. Tente mais tarde."
+MSG_WHATSAPP_REJECTED = "A Evolution recusou este conteúdo."
+MSG_CREDENTIALS_WHATSAPP = "Não foi possível ler a chave desta instância. Atualize a conta."
 
 TOKEN_CODES = {102, 190}
 PERMISSION_CODES = {10, 200, 220}
@@ -121,6 +129,7 @@ def send_pending(
     *,
     client: GraphClient | None = None,
     threads_client: ThreadsClient | None = None,
+    evolution_client: EvolutionClient | None = None,
     batch_size: int | None = None,
     clock=time.monotonic,
 ) -> BatchResult:
@@ -156,6 +165,10 @@ def send_pending(
         if claimed.platform == SocialAccount.Platform.THREADS:
             threads_client = threads_client or ThreadsClient.from_settings()
             ok = _publish_threads_target(claimed, threads_client, max_wait=remaining_time - WAIT_SAFETY_MARGIN)
+        elif claimed.platform == SocialAccount.Platform.WHATSAPP_STATUS:
+            if evolution_client is None and evolution_configured():
+                evolution_client = EvolutionClient.from_settings()
+            ok = _publish_whatsapp_target(claimed, evolution_client)
         else:
             client = client or GraphClient.from_settings()
             ok = _publish_target(claimed, client)
@@ -276,6 +289,79 @@ def _publish_threads_target(target: PublicationTarget, client: ThreadsClient, *,
     )
     logger.info("publish_ok page=%s platform=threads", target.page_external_id)
     return True
+
+
+STATE_PROBE_CODES = {"rejected", "server", "bad_response"}  # falhas que podem ser "instância fora de `open`"
+STATE_PROBE_TIMEOUT = 10  # a sondagem é curta: não pode comer o orçamento da requisição
+
+
+def _publish_whatsapp_target(target: PublicationTarget, client: EvolutionClient | None, *, timeout: float | None = None) -> bool:
+    """Publica o Status no WhatsApp via Evolution: texto, ou imagem (base64) com o texto como legenda. Uma chamada, sem espera.
+
+    Chave inválida/instância inexistente/desconectada → conta em Reconexão necessária (spec 0006, AC-11).
+    Nada de chave, base64 ou texto em log ou mensagem.
+    """
+    account, publication = target.account, target.publication
+    if client is None:
+        _mark_failed(target, MSG_WHATSAPP_NOT_CONFIGURED, "not_configured")
+        return False
+    if account.needs_reauth:  # não chama a Evolution até a conta voltar a ficar ativa
+        _mark_failed(target, MSG_WHATSAPP_REAUTH, "reauth")
+        return False
+    try:
+        key = account.get_token()
+        if publication.has_image:
+            with publication.image.open("rb") as fh:
+                image = fh.read()
+            message_id = client.send_status_image(account.external_id, key, image, publication.text, timeout=timeout)
+        else:
+            message_id = client.send_status_text(account.external_id, key, publication.text, timeout=timeout)
+    except TokenCryptoError:
+        _mark_failed(target, MSG_CREDENTIALS_WHATSAPP, "crypto")
+        return False
+    except FileNotFoundError:
+        _mark_failed(target, MSG_IMAGE_MISSING, "image_missing")
+        return False
+    except EvolutionApiError as exc:
+        _mark_failed(target, _whatsapp_failure_message(exc, account, key, client), exc.code)
+        return False
+
+    PublicationTarget.objects.filter(pk=target.pk).update(
+        status=S.PUBLISHED,
+        external_post_id=message_id,
+        permalink="",
+        published_at=timezone.now(),
+        error_message="",
+        error_code="",
+    )
+    logger.info("evolution_status_sent kind=%s", "image" if publication.has_image else "text")
+    return True
+
+
+def _whatsapp_failure_message(exc: EvolutionApiError, account: SocialAccount, key: str, client: EvolutionClient) -> str:
+    """Mensagem amigável da falha; marca a conta para reconexão quando a causa é a instância/chave."""
+    code = exc.code
+    if code in evolution_connect.REAUTH_CODES:
+        evolution_connect.needs_reauth(account)
+        return MSG_WHATSAPP_REAUTH
+    if code in STATE_PROBE_CODES and _instance_not_open(client, account, key):
+        evolution_connect.needs_reauth(account)
+        return MSG_WHATSAPP_REAUTH
+    if code == "rate_limit":
+        return MSG_WHATSAPP_RATE_LIMIT
+    if code == "rejected":
+        return MSG_WHATSAPP_REJECTED
+    if code == "not_configured":
+        return MSG_WHATSAPP_NOT_CONFIGURED
+    return MSG_WHATSAPP_NETWORK
+
+
+def _instance_not_open(client: EvolutionClient, account: SocialAccount, key: str) -> bool:
+    """Sonda o estado da conexão depois de uma falha ambígua. Se a sondagem falha, não conclui nada (False)."""
+    try:
+        return client.connection_state(account.external_id, key, timeout=STATE_PROBE_TIMEOUT) != evolution_connect.OPEN
+    except EvolutionApiError:
+        return False
 
 
 def _mark_failed(target: PublicationTarget, message: str, code: str) -> None:
