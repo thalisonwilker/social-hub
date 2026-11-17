@@ -57,7 +57,7 @@ class PublicationModelTests(TestCase):
         self.target(pub, "4", S.FAILED)
         self.assertEqual(pub.status, Publication.Status.FAILED)
         self.assertEqual(pub.status_label, "Com falhas")
-        self.assertEqual(pub.status_counts(), {"pending": 1, "sending": 1, "published": 1, "failed": 1})
+        self.assertEqual(pub.status_counts(), {"pending": 1, "sending": 1, "published": 1, "failed": 1, "uncertain": 0})  # 0007: novo estado
 
     def test_AC_15_all_published_is_published(self):
         pub = self.publication()

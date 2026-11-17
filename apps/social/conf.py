@@ -93,3 +93,12 @@ def evolution_configured() -> bool:
     """True com URL HTTPS válida e chave de criptografia válida (para cifrar a chave da instância)."""
     return bool(evolution_base_url()) and _keys_are_valid()
 
+
+def publish_mode() -> str:
+    """`worker` (Publicar só enfileira) ou `inline` (envia na requisição). Valor inválido cai em `inline` (modo legado seguro)."""
+    return "worker" if getattr(settings, "PUBLISH_MODE", "inline") == "worker" else "inline"
+
+
+def publish_in_background() -> bool:
+    return publish_mode() == "worker"
+

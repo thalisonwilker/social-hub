@@ -136,6 +136,15 @@ EVOLUTION_TIMEOUT_SECONDS = int(os.environ.get("EVOLUTION_TIMEOUT_SECONDS", "120
 # Orçamento de tempo de uma requisição de envio (deve ser menor que o --timeout do Gunicorn).
 PUBLISH_REQUEST_BUDGET_SECONDS = int(os.environ.get("PUBLISH_REQUEST_BUDGET_SECONDS", "150"))
 
+# --- Publicação em segundo plano (spec 0007) -----------------------------------------------------
+# `worker`: Publicar só enfileira e o `run_worker` envia; `inline`: envia na requisição (dev/testes). Produção usa `worker`.
+PUBLISH_MODE = os.environ.get("PUBLISH_MODE") or "inline"
+WORKER_POLL_SECONDS = float(os.environ.get("WORKER_POLL_SECONDS", "2"))
+WORKER_HEARTBEAT_STALE_SECONDS = int(os.environ.get("WORKER_HEARTBEAT_STALE_SECONDS", "180"))
+PUBLISH_SENDING_STALE_SECONDS = int(os.environ.get("PUBLISH_SENDING_STALE_SECONDS", "900"))
+# A suíte sempre roda em `inline` (o container de testes usa os settings de produção).
+TEST_RUNNER = "config.test_runner.InlinePublishRunner"
+
 LOGIN_URL = "accounts:login"
 LOGIN_REDIRECT_URL = "dashboard:index"
 LOGOUT_REDIRECT_URL = "accounts:login"

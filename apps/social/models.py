@@ -78,6 +78,7 @@ class Publication(models.Model):
         PENDING = "pending", "Pendente"
         PUBLISHED = "published", "Publicada"
         FAILED = "failed", "Com falhas"
+        UNCERTAIN = "uncertain", "Incerta"
 
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="publications"
@@ -110,6 +111,8 @@ class Publication(models.Model):
         total = sum(counts.values())
         if counts["failed"]:
             return self.Status.FAILED
+        if counts["uncertain"]:  # resultado desconhecido: só o usuário resolve (spec 0007)
+            return self.Status.UNCERTAIN
         if total and counts["published"] == total:
             return self.Status.PUBLISHED
         return self.Status.PENDING
@@ -122,6 +125,10 @@ class Publication(models.Model):
     def has_retryable_targets(self) -> bool:
         return any(t.is_retryable for t in self.targets.all())
 
+    @property
+    def has_resolvable_targets(self) -> bool:
+        return any(t.is_resolvable for t in self.targets.all())
+
 
 class PublicationTarget(models.Model):
     """Par (Publicação, Página): estado e resultado do envio àquela Página."""
@@ -131,6 +138,8 @@ class PublicationTarget(models.Model):
         SENDING = "sending", "Enviando"
         PUBLISHED = "published", "Publicado"
         FAILED = "failed", "Falhou"
+        # O Hub não sabe se a plataforma publicou (spec 0007): nunca é reenviado sozinho; o usuário resolve.
+        UNCERTAIN = "uncertain", "Incerto"
 
     publication = models.ForeignKey(Publication, on_delete=models.CASCADE, related_name="targets")
     account = models.ForeignKey(
@@ -168,3 +177,61 @@ class PublicationTarget(models.Model):
     def is_retryable(self) -> bool:
         """Pendente ou falho, e com a conta ainda conectada. `published` nunca é reenviado."""
         return self.status in (self.Status.PENDING, self.Status.FAILED) and self.account_id is not None
+
+    @property
+    def can_try_again(self) -> bool:
+        """"Tentar novamente" (modo worker): só alvo `failed` com a conta ainda conectada."""
+        return self.status == self.Status.FAILED and self.account_id is not None
+
+    @property
+    def is_resolvable(self) -> bool:
+        """Alvo Incerto: o usuário decide "Já foi publicado" ou "Reenviar" (funciona mesmo sem conta)."""
+        return self.status == self.Status.UNCERTAIN
+
+    @property
+    def can_resend(self) -> bool:
+        """"Reenviar" um alvo Incerto exige a conta conectada."""
+        return self.is_resolvable and self.account_id is not None
+
+
+class WorkerHeartbeat(models.Model):
+    """Batida do worker de envio (spec 0007): uma linha só; diz se há worker ativo. Sem segredos nem conteúdo."""
+
+    DEFAULT_NAME = "default"
+
+    name = models.CharField(max_length=32, unique=True, default=DEFAULT_NAME)
+    started_at = models.DateTimeField(default=timezone.now)
+    beat_at = models.DateTimeField(default=timezone.now)
+    pid = models.PositiveIntegerField(default=0)
+
+    def __str__(self) -> str:
+        return f"Worker {self.name} (pid {self.pid})"
+
+    @classmethod
+    def start(cls, *, pid: int) -> "WorkerHeartbeat":
+        """Nova partida do worker: renova `started_at`, `beat_at` e o pid."""
+        now = timezone.now()
+        beat, _ = cls.objects.update_or_create(
+            name=cls.DEFAULT_NAME, defaults={"started_at": now, "beat_at": now, "pid": pid}
+        )
+        return beat
+
+    @classmethod
+    def beat(cls, *, pid: int) -> "WorkerHeartbeat":
+        """Bate o coração: atualiza `beat_at` (cria a linha se não existir)."""
+        now = timezone.now()
+        updated = cls.objects.filter(name=cls.DEFAULT_NAME).update(beat_at=now, pid=pid)
+        if not updated:
+            return cls.objects.create(name=cls.DEFAULT_NAME, started_at=now, beat_at=now, pid=pid)
+        return cls.objects.get(name=cls.DEFAULT_NAME)
+
+    @classmethod
+    def is_active(cls, now=None) -> bool:
+        """Ativo ⇔ a última batida é mais recente que WORKER_HEARTBEAT_STALE_SECONDS. Sem linha = inativo."""
+        from datetime import timedelta
+
+        beat_at = cls.objects.filter(name=cls.DEFAULT_NAME).values_list("beat_at", flat=True).first()
+        if beat_at is None:
+            return False
+        return ((now or timezone.now()) - beat_at) <= timedelta(seconds=settings.WORKER_HEARTBEAT_STALE_SECONDS)
+

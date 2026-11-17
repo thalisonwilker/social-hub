@@ -1,10 +1,15 @@
 """Produção: DEBUG desligado, SECRET_KEY obrigatória e cabeçalhos de segurança."""
+import os
+
 from django.core.exceptions import ImproperlyConfigured
 
 from .base import *  # noqa: F401,F403
 from .base import SECRET_KEY, env_bool, env_list
 
 DEBUG = False
+
+# Em produção o envio roda no worker (spec 0007); `PUBLISH_MODE=inline` volta ao envio na requisição.
+PUBLISH_MODE = os.environ.get("PUBLISH_MODE") or "worker"  # vazio (ex.: `PUBLISH_MODE=` no .env) = padrão
 
 if len(SECRET_KEY) < 32 or SECRET_KEY.startswith("dev-only"):
     raise ImproperlyConfigured(
