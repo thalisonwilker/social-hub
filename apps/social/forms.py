@@ -4,6 +4,7 @@ from django.conf import settings
 from .conf import public_url_configured
 from .images import ImageValidationError, sanitize_image
 from .models import SocialAccount
+from .validators import clean_instance_key, is_valid_instance_name
 from .textrules import THREADS_MAX_LINKS, THREADS_MAX_WEIGHT, count_unique_links, threads_weight
 
 FB = SocialAccount.Platform.FACEBOOK_PAGE
@@ -94,3 +95,42 @@ class PublicationForm(forms.Form):
                     elif not public_url_configured():
                         self.add_error("image", MSG_PUBLIC_URL)
         return cleaned
+
+
+MSG_INSTANCE_NAME = "Nome de instância inválido. Use só letras, números, hífen e sublinhado (até 64 caracteres)."
+
+
+class WhatsAppInstanceForm(forms.Form):
+    """Cadastro de uma instância da Evolution (spec 0006). A chave nunca é reexibida (`render_value=False`)."""
+
+    instance_name = forms.CharField(
+        label="Nome da instância",
+        strip=True,
+        widget=forms.TextInput(attrs={"class": "input", "autocomplete": "off", "spellcheck": "false"}),
+        error_messages={"required": MSG_INSTANCE_NAME},
+    )
+    api_key = forms.CharField(
+        label="Chave da instância",
+        strip=True,
+        widget=forms.PasswordInput(attrs={"class": "input", "autocomplete": "off"}, render_value=False),
+        error_messages={"required": "Informe a chave da instância."},
+    )
+    label = forms.CharField(
+        label="Nome de exibição (opcional)",
+        required=False,
+        strip=True,
+        max_length=255,
+        widget=forms.TextInput(attrs={"class": "input", "autocomplete": "off"}),
+    )
+
+    def clean_instance_name(self):
+        name = self.cleaned_data["instance_name"]
+        if not is_valid_instance_name(name):
+            raise forms.ValidationError(MSG_INSTANCE_NAME)
+        return name
+
+    def clean_api_key(self):
+        key = clean_instance_key(self.cleaned_data["api_key"])
+        if not key:
+            raise forms.ValidationError("Informe a chave da instância.")
+        return key

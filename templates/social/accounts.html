@@ -15,11 +15,20 @@
         <i data-lucide="at-sign" class="h-4 w-4"></i>Conectar Threads
       </button>
     </form>
+    {% if evolution_configured %}
+    <a href="{% url 'social:whatsapp_new' %}" class="btn btn-primary"><i data-lucide="message-circle" class="h-4 w-4"></i>Adicionar WhatsApp</a>
+    {% else %}
+    <button type="button" class="btn btn-primary" disabled aria-disabled="true" title="Integração com o WhatsApp não configurada"><i data-lucide="message-circle" class="h-4 w-4"></i>Adicionar WhatsApp</button>
+    {% endif %}
   </div>
 </div>
 
 {% if not threads_configured %}
 <p class="mb-4 text-xs text-muted">Threads: integração com o Threads não configurada (veja as variáveis <code>THREADS_*</code> no README).</p>
+{% endif %}
+
+{% if not evolution_configured %}
+<p class="mb-4 text-xs text-muted">WhatsApp: integração com o WhatsApp não configurada (veja <code>EVOLUTION_API_URL</code> no README).</p>
 {% endif %}
 
 {% if not configured %}
@@ -38,13 +47,13 @@
       {% if account.picture_url %}
         <img src="{{ account.picture_url }}" alt="" class="h-11 w-11 rounded border border-line object-cover" referrerpolicy="no-referrer">
       {% else %}
-        <span class="flex h-11 w-11 items-center justify-center rounded border border-line bg-surface-2 text-muted"><i data-lucide="{% if account.platform == 'threads' %}at-sign{% else %}flag{% endif %}" class="h-5 w-5"></i></span>
+        <span class="flex h-11 w-11 items-center justify-center rounded border border-line bg-surface-2 text-muted"><i data-lucide="{% if account.platform == 'threads' %}at-sign{% elif account.platform == 'whatsapp_status' %}message-circle{% else %}flag{% endif %}" class="h-5 w-5"></i></span>
       {% endif %}
 
       <div class="min-w-0 flex-1">
         <p class="truncate font-medium">{{ account.name }}</p>
         <p class="truncate text-xs text-muted">
-          {{ account.get_platform_display }}{% if account.username %} · @{{ account.username }}{% elif account.category %} · {{ account.category }}{% endif %} · conectada em {{ account.connected_at|date:"d/m/Y" }}{% if account.token_expires_at %} · token expira em {{ account.days_until_token_expiry }} dia(s){% endif %}
+          {{ account.get_platform_display }}{% if account.platform == 'whatsapp_status' %} · instância {{ account.external_id }}{% endif %}{% if account.username %} · @{{ account.username }}{% elif account.category %} · {{ account.category }}{% endif %} · conectada em {{ account.connected_at|date:"d/m/Y" }}{% if account.token_expires_at %} · token expira em {{ account.days_until_token_expiry }} dia(s){% endif %}
         </p>
       </div>
 
@@ -52,7 +61,9 @@
 
       <div class="flex gap-2">
         {% if account.needs_reauth %}
-        {% if account.platform == 'threads' %}
+        {% if account.platform == 'whatsapp_status' %}
+        <a href="{% url 'social:whatsapp_new' %}?instance={{ account.external_id }}" class="btn btn-primary"><i data-lucide="key-round" class="h-4 w-4"></i>Atualizar chave</a>
+        {% elif account.platform == 'threads' %}
         <form method="post" action="{% url 'social:threads_connect' %}">
           {% csrf_token %}
           <button type="submit" class="btn btn-primary" {% if not threads_configured %}disabled{% endif %}><i data-lucide="refresh-cw" class="h-4 w-4"></i>Reconectar</button>
@@ -68,7 +79,7 @@
           {% csrf_token %}
           <button type="submit" class="btn"><i data-lucide="refresh-cw" class="h-4 w-4"></i>Verificar</button>
         </form>
-        <form method="post" action="{% url 'social:account_disconnect' account.pk %}" data-confirm="Desconectar “{{ account.name }}”? O token será apagado do Social Hub.">
+        <form method="post" action="{% url 'social:account_disconnect' account.pk %}" data-confirm="Desconectar “{{ account.name }}”? {% if account.platform == 'whatsapp_status' %}A chave da instância{% else %}O token{% endif %} será apagad{% if account.platform == 'whatsapp_status' %}a{% else %}o{% endif %} do Social Hub.">
           {% csrf_token %}
           <button type="submit" class="btn text-danger"><i data-lucide="trash-2" class="h-4 w-4"></i>Desconectar</button>
         </form>

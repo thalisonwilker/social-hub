@@ -6,7 +6,7 @@ from django.urls import path, re_path
 
 from apps.core.views import PlaceholderView
 
-from . import views, views_public, views_publications, views_threads
+from . import views, views_public, views_publications, views_threads, views_whatsapp
 
 app_name = "social"
 
@@ -16,6 +16,7 @@ urlpatterns = [
     path("contas/facebook/selecionar/", views.FacebookSelectView.as_view(), name="facebook_select"),
     path("contas/threads/conectar/", views_threads.ThreadsConnectView.as_view(), name="threads_connect"),
     path("contas/threads/callback/", views_threads.ThreadsCallbackView.as_view(), name="threads_callback"),
+    path("contas/whatsapp/nova/", views_whatsapp.WhatsAppNewView.as_view(), name="whatsapp_new"),
     path("contas/", views.AccountsView.as_view(), name="accounts"),
     path("contas/<int:pk>/verificar/", views.AccountCheckView.as_view(), name="account_check"),
     path("contas/<int:pk>/desconectar/", views.AccountDisconnectView.as_view(), name="account_disconnect"),

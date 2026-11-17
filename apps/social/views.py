@@ -8,11 +8,12 @@ from django.views.generic import TemplateView
 
 from apps.core.views import PlaceholderView  # noqa: F401  (usado em urls.py)
 
-from .conf import meta_configured, threads_configured
+from .conf import evolution_configured, meta_configured, threads_configured
 from .crypto import TokenCryptoError
 from .services import facebook_connect
 from .models import SocialAccount
-from .services import threads_tokens
+from .services import evolution_connect, threads_tokens
+from .services.evolution import EvolutionApiError, EvolutionClient
 from .services.threads import ThreadsClient
 from .services.meta import GraphClient, MetaApiError
 
@@ -140,6 +141,7 @@ class AccountsView(TemplateView):
             page_title="Contas conectadas",
             configured=meta_configured(),
             threads_configured=threads_configured(),
+            evolution_configured=evolution_configured(),
             accounts=SocialAccount.objects.filter(owner=self.request.user),
         )
         return context
@@ -163,6 +165,8 @@ class AccountCheckView(AccountActionView):
         account = self.get_account(request, pk)
         if account.platform == SocialAccount.Platform.THREADS:
             return self._check_threads(request, account)
+        if account.platform == SocialAccount.Platform.WHATSAPP_STATUS:
+            return self._check_whatsapp(request, account)
         return self._check_facebook(request, account)
 
     def _save(self, account, **fields):
@@ -193,6 +197,30 @@ class AccountCheckView(AccountActionView):
             return redirect("social:accounts")
         except TokenCryptoError:
             messages.error(request, self.MSG_CANNOT_CHECK)
+            return redirect("social:accounts")
+        self._ok(request, account)
+        return redirect("social:accounts")
+
+    def _check_whatsapp(self, request, account):
+        """Consulta o estado da conexão da instância: `open` → ativa; desconectada/chave recusada → Reconexão necessária."""
+        if not evolution_configured():
+            messages.error(request, evolution_connect.MSG_NOT_CONFIGURED)
+            return redirect("social:accounts")
+        try:
+            state = EvolutionClient.from_settings().connection_state(account.external_id, account.get_token())
+        except EvolutionApiError as exc:
+            if exc.code in evolution_connect.REAUTH_CODES:
+                evolution_connect.needs_reauth(account)
+                messages.warning(request, f"Reconexão necessária para “{account.name}”.")
+            else:
+                messages.error(request, self.MSG_CANNOT_CHECK)
+            return redirect("social:accounts")
+        except TokenCryptoError:
+            messages.error(request, self.MSG_CANNOT_CHECK)
+            return redirect("social:accounts")
+        if state != evolution_connect.OPEN:
+            evolution_connect.needs_reauth(account)
+            messages.warning(request, f"Reconexão necessária para “{account.name}”.")
             return redirect("social:accounts")
         self._ok(request, account)
         return redirect("social:accounts")

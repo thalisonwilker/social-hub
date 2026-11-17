@@ -1,0 +1,48 @@
+{% extends "layout.html" %}
+{% block content %}
+<form method="post" class="card max-w-xl" novalidate data-disable-on-submit autocomplete="off">
+  {% csrf_token %}
+  <div class="space-y-5 p-5 sm:p-6">
+    {% if not configured %}
+    <div class="card flex items-start gap-3 border-l-2 border-l-warn px-4 py-3" role="status">
+      <i data-lucide="triangle-alert" class="mt-0.5 h-4 w-4 shrink-0 text-warn"></i>
+      <div>
+        <p class="font-medium">Integração com o WhatsApp não configurada</p>
+        <p class="text-muted">Defina <code>EVOLUTION_API_URL</code> (HTTPS) no <code>.env</code> e reinicie o serviço. Veja o README.</p>
+      </div>
+    </div>
+    {% endif %}
+
+    <p class="text-muted">Informe a instância da Evolution <strong class="font-medium text-fg">já conectada</strong> (o pareamento é feito por lá). O Hub publica no <strong class="font-medium text-fg">Status</strong> do número, para todos os seus contatos.</p>
+
+    {% if form.non_field_errors %}
+      <div class="border-l-2 border-l-danger bg-surface-2 px-3 py-2 text-danger" role="alert">{% for e in form.non_field_errors %}{{ e }}{% endfor %}</div>
+    {% endif %}
+
+    <div>
+      <label class="label" for="{{ form.instance_name.id_for_label }}">{{ form.instance_name.label }}</label>
+      {{ form.instance_name }}
+      {% for error in form.instance_name.errors %}<p class="mt-1 text-xs text-danger">{{ error }}</p>{% endfor %}
+    </div>
+
+    <div>
+      <label class="label" for="{{ form.api_key.id_for_label }}">{{ form.api_key.label }}</label>
+      {{ form.api_key }}
+      <p class="mt-1 text-xs text-muted">Use a chave <strong class="font-medium text-fg">da instância</strong> (nunca a chave global da Evolution). Ela é guardada criptografada e não é exibida de novo.</p>
+      {% for error in form.api_key.errors %}<p class="mt-1 text-xs text-danger">{{ error }}</p>{% endfor %}
+    </div>
+
+    <div>
+      <label class="label" for="{{ form.label.id_for_label }}">{{ form.label.label }}</label>
+      {{ form.label }}
+      {% for error in form.label.errors %}<p class="mt-1 text-xs text-danger">{{ error }}</p>{% endfor %}
+    </div>
+
+    <p class="text-xs text-muted">Aviso: o Baileys não é oficial; envio frequente pode levar ao banimento do número. Use com moderação.</p>
+  </div>
+  <div class="flex items-center justify-end gap-2 border-t border-line px-5 py-3 sm:px-6">
+    <a href="{% url 'social:accounts' %}" class="btn btn-ghost">Cancelar</a>
+    <button type="submit" class="btn btn-primary" {% if not configured %}disabled aria-disabled="true"{% endif %}><i data-lucide="message-circle" class="h-4 w-4"></i>Conectar WhatsApp</button>
+  </div>
+</form>
+{% endblock %}
