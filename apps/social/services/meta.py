@@ -30,19 +30,80 @@ class MetaApiError(Exception):
 
     @property
     def is_token_error(self) -> bool:
-        return self.code in TOKEN_ERROR_CODES
+        return self.code in TOKEN_ERROR_CODES or self.status == 401
 
 
-class GraphClient:
+class BaseGraphClient:
+    """Base comum dos clientes Graph (Facebook e Threads): requisição sanitizada, sem logar URL nem parâmetros."""
+
+    base_url = ""  # definido pela subclasse (ex.: https://graph.facebook.com)
+
+    def __init__(self, *, version, timeout=10, upload_timeout=30, session=None):
+        self.version = version
+        self.timeout = timeout
+        self.upload_timeout = upload_timeout
+        self.session = session or requests.Session()
+
+    @staticmethod
+    def _require_token(data: dict, endpoint: str) -> str:
+        token = data.get("access_token")
+        if not token:
+            logger.warning("graph_error endpoint=%s code=%s subcode=%s", endpoint, "no_token", None)
+            raise MetaApiError("Resposta da Meta sem token.", endpoint=endpoint)
+        return token
+
+    def _request(self, method, path, *, params=None, data=None, files=None, token=None, timeout=None, versioned=True) -> dict:
+        """`token` vai no header Authorization (Facebook). `versioned=False` omite a versão do caminho (ex.: oauth do Threads).
+
+        Credenciais exigidas pela API no corpo/consulta são passadas pelo chamador em `data`/`params`; este método
+        nunca registra URL, parâmetros nem corpo de resposta.
+        """
+        prefix = f"{self.base_url}/{self.version}" if versioned else self.base_url
+        url = f"{prefix}/{path}"
+        headers = {"Authorization": f"Bearer {token}"} if token else {}
+        try:
+            response = self.session.request(
+                method, url, params=params, data=data, files=files, headers=headers, timeout=timeout or self.timeout
+            )
+        except requests.RequestException:
+            logger.warning("graph_error endpoint=%s code=%s subcode=%s", path, "network", None)
+            raise MetaApiError("Falha de rede ao falar com a Meta.", code="network", endpoint=path) from None
+
+        try:
+            payload = response.json()
+        except ValueError:
+            payload = None
+        if not isinstance(payload, dict):
+            logger.warning("graph_error endpoint=%s code=%s subcode=%s", path, "bad_response", None)
+            raise MetaApiError(
+                "Resposta inválida da Meta.", code="bad_response", status=response.status_code, endpoint=path
+            )
+
+        error = payload.get("error")
+        if response.status_code >= 400 or error:
+            # Formatos: {"error": {"code": ..}} (Graph) ou {"error_type": .., "code": ..} (OAuth do Threads).
+            source = error if isinstance(error, dict) else payload
+            code, subcode = source.get("code"), source.get("error_subcode")
+            logger.warning("graph_error endpoint=%s code=%s subcode=%s", path, code, subcode)
+            raise MetaApiError(
+                "A Meta recusou a requisição.",
+                code=code,
+                subcode=subcode,
+                status=response.status_code,
+                endpoint=path,
+            )
+        return payload
+
+
+class GraphClient(BaseGraphClient):
+    base_url = GRAPH_BASE
+
     def __init__(self, *, app_id, app_secret, config_id, redirect_uri, version, timeout=10, upload_timeout=30, session=None):
         self.app_id = app_id
         self.app_secret = app_secret
         self.config_id = config_id
         self.redirect_uri = redirect_uri
-        self.version = version
-        self.timeout = timeout
-        self.upload_timeout = upload_timeout
-        self.session = session or requests.Session()
+        super().__init__(version=version, timeout=timeout, upload_timeout=upload_timeout, session=session)
 
     @classmethod
     def from_settings(cls):
@@ -148,47 +209,3 @@ class GraphClient:
             logger.warning("graph_error endpoint=%s code=%s subcode=%s", "photos", "no_post_id", None)
             raise MetaApiError("Resposta da Meta sem identificador do post.", code="bad_response", endpoint="photos")
         return {"photo_id": data.get("id", ""), "post_id": str(post_id)}
-
-    # --- Interno ---------------------------------------------------------------
-    @staticmethod
-    def _require_token(data: dict, endpoint: str) -> str:
-        token = data.get("access_token")
-        if not token:
-            logger.warning("graph_error endpoint=%s code=%s subcode=%s", endpoint, "no_token", None)
-            raise MetaApiError("Resposta da Meta sem token.", endpoint=endpoint)
-        return token
-
-    def _request(self, method, path, *, params=None, data=None, files=None, token=None, timeout=None) -> dict:
-        url = f"{GRAPH_BASE}/{self.version}/{path}"
-        headers = {"Authorization": f"Bearer {token}"} if token else {}
-        try:
-            response = self.session.request(
-                method, url, params=params, data=data, files=files, headers=headers, timeout=timeout or self.timeout
-            )
-        except requests.RequestException:
-            logger.warning("graph_error endpoint=%s code=%s subcode=%s", path, "network", None)
-            raise MetaApiError("Falha de rede ao falar com a Meta.", code="network", endpoint=path) from None
-
-        try:
-            payload = response.json()
-        except ValueError:
-            payload = None
-        if not isinstance(payload, dict):
-            logger.warning("graph_error endpoint=%s code=%s subcode=%s", path, "bad_response", None)
-            raise MetaApiError(
-                "Resposta inválida da Meta.", code="bad_response", status=response.status_code, endpoint=path
-            )
-
-        error = payload.get("error")
-        if response.status_code >= 400 or error:
-            error = error if isinstance(error, dict) else {}
-            code, subcode = error.get("code"), error.get("error_subcode")
-            logger.warning("graph_error endpoint=%s code=%s subcode=%s", path, code, subcode)
-            raise MetaApiError(
-                "A Meta recusou a requisição.",
-                code=code,
-                subcode=subcode,
-                status=response.status_code,
-                endpoint=path,
-            )
-        return payload
