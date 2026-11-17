@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 
 from .crypto import decrypt_token, encrypt_token
 
@@ -9,6 +10,7 @@ class SocialAccount(models.Model):
 
     class Platform(models.TextChoices):
         FACEBOOK_PAGE = "facebook_page", "Página do Facebook"
+        THREADS = "threads", "Perfil do Threads"
 
     class Status(models.TextChoices):
         ACTIVE = "active", "Ativa"
@@ -20,6 +22,7 @@ class SocialAccount(models.Model):
     platform = models.CharField(max_length=32, choices=Platform.choices)
     external_id = models.CharField("ID na plataforma", max_length=64)
     name = models.CharField(max_length=255)
+    username = models.CharField(max_length=64, blank=True)  # @usuário (Threads)
     category = models.CharField(max_length=255, blank=True)
     picture_url = models.URLField(max_length=500, blank=True)
     # Token SEMPRE criptografado (ADR-0002). Use set_token()/get_token().
@@ -30,6 +33,9 @@ class SocialAccount(models.Model):
     connected_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     last_checked_at = models.DateTimeField(null=True, blank=True)
+    # Só para tokens que expiram (Threads, 60 dias). Páginas do Facebook não expiram: ficam nulos.
+    token_expires_at = models.DateTimeField(null=True, blank=True)
+    token_refreshed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["name"]
@@ -52,6 +58,17 @@ class SocialAccount(models.Model):
     def needs_reauth(self) -> bool:
         return self.status == self.Status.NEEDS_REAUTH
 
+    def token_expired(self, now=None) -> bool:
+        """True se o token tem validade e ela já passou (Páginas do Facebook nunca expiram)."""
+        return self.token_expires_at is not None and self.token_expires_at <= (now or timezone.now())
+
+    def days_until_token_expiry(self, now=None) -> int | None:
+        """Dias inteiros até a expiração (0 se já passou); None se o token não expira."""
+        if self.token_expires_at is None:
+            return None
+        delta = self.token_expires_at - (now or timezone.now())
+        return max(0, delta.days)
+
 
 class Publication(models.Model):
     """Conteúdo (texto + 1 imagem) a ser publicado em uma ou mais Páginas."""
@@ -65,8 +82,9 @@ class Publication(models.Model):
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="publications"
     )
     text = models.TextField()
-    image = models.FileField(upload_to="publications/%Y/%m/")
-    image_content_type = models.CharField(max_length=32)
+    # Opcional: publicações só do Threads não têm imagem (obrigatória só com Página do Facebook).
+    image = models.FileField(upload_to="publications/%Y/%m/", blank=True)
+    image_content_type = models.CharField(max_length=32, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -74,6 +92,10 @@ class Publication(models.Model):
 
     def __str__(self) -> str:  # nunca inclui o texto completo
         return f"Publicação #{self.pk}"
+
+    @property
+    def has_image(self) -> bool:
+        return bool(self.image)
 
     def status_counts(self) -> dict:
         counts = {s.value: 0 for s in PublicationTarget.Status}
@@ -116,8 +138,13 @@ class PublicationTarget(models.Model):
     # Snapshot: o histórico sobrevive à desconexão da conta.
     page_external_id = models.CharField(max_length=64)
     page_name = models.CharField(max_length=255)
+    platform = models.CharField(
+        max_length=32, choices=SocialAccount.Platform.choices, default=SocialAccount.Platform.FACEBOOK_PAGE
+    )
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)
     external_post_id = models.CharField(max_length=128, blank=True)
+    # Threads: id do container, gravado ANTES de publicar para retomar sem recriar (ADR-0007).
+    external_container_id = models.CharField(max_length=128, blank=True)
     permalink = models.URLField(max_length=500, blank=True)
     error_message = models.CharField(max_length=255, blank=True)  # SEMPRE amigável
     error_code = models.CharField(max_length=32, blank=True)
