@@ -2,11 +2,11 @@
 
 A agenda ainda é uma página reservada.
 """
-from django.urls import path
+from django.urls import path, re_path
 
 from apps.core.views import PlaceholderView
 
-from . import views, views_publications, views_threads
+from . import views, views_public, views_publications, views_threads
 
 app_name = "social"
 
@@ -24,6 +24,7 @@ urlpatterns = [
     path("publicacoes/<int:pk>/", views_publications.PostDetailView.as_view(), name="post_detail"),
     path("publicacoes/<int:pk>/enviar/", views_publications.PostSendView.as_view(), name="post_send"),
     path("publicacoes/<int:pk>/imagem/", views_publications.PostImageView.as_view(), name="post_image"),
+    re_path(r"^publico/imagem\.(?P<ext>jpg|png)$", views_public.PublicImageView.as_view(), name="public_image"),
     path(
         "agenda/",
         PlaceholderView.as_view(
