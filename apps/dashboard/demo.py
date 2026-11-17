@@ -39,11 +39,12 @@ def weekly_reach():
     ]
 
 
-def platforms():
+def platforms(connected=()):
+    """`connected`: nomes das plataformas com conta ativa (ex.: {"Facebook"}). Os percentuais são fictícios."""
     return [
-        {"name": "Facebook", "icon": "facebook", "share": 38, "connected": False},
-        {"name": "Instagram", "icon": "instagram", "share": 46, "connected": False},
-        {"name": "Threads", "icon": "at-sign", "share": 16, "connected": False},
+        {"name": "Facebook", "icon": "facebook", "share": 38, "connected": "Facebook" in connected},
+        {"name": "Instagram", "icon": "instagram", "share": 46, "connected": "Instagram" in connected},
+        {"name": "Threads", "icon": "at-sign", "share": 16, "connected": "Threads" in connected},
     ]
 
 
