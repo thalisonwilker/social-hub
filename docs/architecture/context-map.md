@@ -21,7 +21,8 @@ alwaysApply: false
 > Shared Kernel, Open Host Service, Published Language.
 
 ```
-[Meta Graph API] ──(ACL: GraphClient)──► [Social (integrações)]
+[Meta Graph API]    ──(ACL: GraphClient)────►  [Social (integrações)]
+[Threads Graph API] ──(ACL: ThreadsClient)──►  [Social (integrações)]
                                               │
                       (Conformist: User FK)   ├──► [Identidade]
                                               │
@@ -30,6 +31,7 @@ alwaysApply: false
 
 | Upstream   | Downstream | Padrão              | Por quê |
 |------------|------------|---------------------|---------|
+| Threads Graph API | Social | Anti-Corruption Layer | `ThreadsClient` isola host, tokens que expiram e o protocolo de container do Threads |
 | Meta Graph API | Social | Anti-Corruption Layer | `GraphClient` protege o modelo do Hub dos formatos e versões da Meta |
 | Identidade | Social | Conformist | Social só referencia o `User` do Django por FK |
 | Social | Painel | Customer/Supplier | O Painel consulta as contas conectadas (somente leitura) |
