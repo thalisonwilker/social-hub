@@ -1,7 +1,9 @@
 """Publicação de uma imagem com texto em várias Páginas (ADR-0004).
 
-- Envio síncrono em lotes (`PUBLISH_BATCH_SIZE`); cada alvo é REIVINDICADO atomicamente antes da chamada.
-- Alvo `published` nunca é reenviado; `sending` recente não é reenviado; `sending` antigo é recuperado.
+- Cada alvo é REIVINDICADO atomicamente (`pending → sending`) antes da chamada; só `pending` é reivindicado (spec 0007).
+- Alvo `published` nunca é reenviado; `sending` NÃO volta sozinho para a fila: se o resultado é desconhecido
+  (chamada com efeito sem resposta, worker reiniciado, `sending` vencido) o alvo vira `uncertain` e só o usuário resolve.
+- `send_pending` é o envio na requisição (modo `inline`, lote + orçamento); o worker usa `process_target` sem orçamento.
 - Erros viram mensagens amigáveis (nunca o texto cru da Meta). Nada de token ou texto da publicação em log.
 """
 import logging
@@ -11,7 +13,7 @@ from dataclasses import dataclass
 from datetime import timedelta
 
 from django.conf import settings
-from django.db import transaction
+from django.db import OperationalError, transaction
 from django.db.models import F, Q
 from django.utils import timezone
 
@@ -28,7 +30,6 @@ from .threads import ThreadsClient
 
 logger = logging.getLogger("apps.social.meta")
 
-STALE_SENDING = timedelta(minutes=5)
 MIN_SECONDS_TO_START_TARGET = 40  # não inicia novo alvo com menos que isso no orçamento (ADR-0009)
 WAIT_SAFETY_MARGIN = 25  # a espera do container sempre deixa esta folga para publicar e gravar
 POST_URL = "https://www.facebook.com/{post_id}"
@@ -40,6 +41,7 @@ MSG_BLOCKED = "A Meta bloqueou esta publicação."
 MSG_NETWORK = "Falha de comunicação com a Meta."
 MSG_DISCONNECTED = "Conta desconectada."
 MSG_CREDENTIALS = "Não foi possível ler as credenciais desta Página. Reconecte a conta."
+MSG_UNCERTAIN = "Não foi possível confirmar se foi publicado. Confira na plataforma e escolha “Já foi publicado” ou “Reenviar”."
 MSG_IMAGE_MISSING = "A imagem da publicação não está disponível no servidor."
 MSG_THREADS_REAUTH = "Reconexão necessária para este perfil do Threads."
 MSG_THREADS_NOT_CONFIGURED = "Integração com o Threads não configurada."
@@ -53,7 +55,6 @@ MSG_THREADS_NO_PUBLIC_URL = "O endereço público do Hub não está configurado:
 MSG_WHATSAPP_NOT_CONFIGURED = "Integração com o WhatsApp não configurada."
 MSG_WHATSAPP_REAUTH = "Reconecte o número na Evolution."
 MSG_WHATSAPP_NETWORK = "Falha de comunicação com a Evolution."
-MSG_WHATSAPP_TIMEOUT = "A Evolution demorou a responder. O Status pode ter sido publicado: confira no celular antes de tentar novamente."
 MSG_WHATSAPP_RATE_LIMIT = "Limite de requisições. Tente mais tarde."
 MSG_WHATSAPP_REJECTED = "A Evolution recusou este conteúdo."
 MSG_CREDENTIALS_WHATSAPP = "Não foi possível ler a chave desta instância. Atualize a conta."
@@ -73,6 +74,7 @@ class BatchResult:
     published: int
     failed: int
     remaining: int  # alvos ainda pendentes (não couberam no lote)
+    uncertain: int = 0  # alvos que ficaram Incertos (resultado desconhecido; o usuário resolve)
 
 
 # --- criação ------------------------------------------------------------------
@@ -107,24 +109,95 @@ def create_publication(owner, text: str, image: SanitizedImage | None, accounts)
     return publication
 
 
-# --- reivindicação atômica ----------------------------------------------------
+# --- reivindicação atômica e transições ----------------------------------------
 def claim_target(target_id: int) -> PublicationTarget | None:
-    """Marca o alvo como `sending` só se ele puder ser enviado. Devolve None se outra requisição o tem."""
-    now = timezone.now()
-    was_sending = PublicationTarget.objects.filter(pk=target_id, status=S.SENDING).exists()
-    claimable = Q(status__in=[S.PENDING, S.FAILED]) | Q(status=S.SENDING, last_attempt_at__lt=now - STALE_SENDING)
-    updated = (
-        PublicationTarget.objects.filter(claimable, pk=target_id, account__isnull=False)
-        .update(status=S.SENDING, last_attempt_at=now, attempts=F("attempts") + 1)
-    )
+    """`pending → sending`, atômico. Só `pending` com conta é reivindicado; devolve None se outro processo o tem.
+
+    Nunca reivindica `sending`/`failed`/`uncertain`/`published` (spec 0007: sem recuperação automática).
+    """
+    try:
+        updated = (
+            PublicationTarget.objects.filter(pk=target_id, status=S.PENDING, account__isnull=False)
+            .update(status=S.SENDING, last_attempt_at=timezone.now(), attempts=F("attempts") + 1)
+        )
+    except OperationalError:  # `database is locked`: o worker repete no ciclo seguinte; nenhuma transição se perde
+        logger.warning("claim_locked target=%s", target_id)
+        return None
     if updated != 1:
         return None
-    if was_sending:
-        logger.warning("target_reclaimed target=%s", target_id)
     return PublicationTarget.objects.select_related("account", "publication").get(pk=target_id)
 
 
-# --- envio --------------------------------------------------------------------
+def requeue_target(target_id: int) -> bool:
+    """"Tentar novamente": `failed → pending`, atômico, só com a conta conectada. Nunca toca `published`/`uncertain`."""
+    updated = PublicationTarget.objects.filter(pk=target_id, status=S.FAILED, account__isnull=False).update(
+        status=S.PENDING, error_message="", error_code=""
+    )
+    return updated == 1
+
+
+def requeue_failed(publication: Publication) -> int:
+    """Reenfileira os alvos `failed` (com conta) da publicação. Devolve quantos voltaram a `pending`."""
+    ids = list(publication.targets.filter(status=S.FAILED, account__isnull=False).values_list("pk", flat=True))
+    return sum(1 for pk in ids if requeue_target(pk))
+
+
+def recover_sending(*, reason: str, older_than: timedelta | None = None) -> int:
+    """`sending → uncertain` (NUNCA para `pending`): o dono do alvo morreu ou passou do prazo e o resultado é desconhecido."""
+    queryset = PublicationTarget.objects.filter(status=S.SENDING)
+    if older_than is not None:
+        queryset = queryset.filter(last_attempt_at__lt=timezone.now() - older_than)
+    count = queryset.update(status=S.UNCERTAIN, error_message=MSG_UNCERTAIN, error_code=reason)
+    if count:
+        logger.warning("target_uncertain reason=%s n=%d", reason, count)
+    return count
+
+
+def recover_stale_sending() -> int:
+    """Alvos `sending` além de `PUBLISH_SENDING_STALE_SECONDS` viram Incertos (`stale`)."""
+    return recover_sending(reason="stale", older_than=timedelta(seconds=settings.PUBLISH_SENDING_STALE_SECONDS))
+
+
+class ClientPool:
+    """Clientes das plataformas, criados só quando usados (e injetáveis nos testes)."""
+
+    def __init__(self, graph: GraphClient | None = None, threads: ThreadsClient | None = None, evolution: EvolutionClient | None = None):
+        self._graph, self._threads, self._evolution = graph, threads, evolution
+
+    def graph(self) -> GraphClient:
+        self._graph = self._graph or GraphClient.from_settings()
+        return self._graph
+
+    def threads(self) -> ThreadsClient:
+        self._threads = self._threads or ThreadsClient.from_settings()
+        return self._threads
+
+    def evolution(self) -> EvolutionClient | None:
+        if self._evolution is None and evolution_configured():
+            self._evolution = EvolutionClient.from_settings()
+        return self._evolution
+
+
+def process_target(
+    target_id: int, pool: ClientPool, *, threads_max_wait: float | None = None, evolution_timeout: float | None = None
+) -> str | None:
+    """Reivindica e envia UM alvo pela sua plataforma. Devolve o estado final (`published`/`failed`/`uncertain`) ou None se não o reivindicou.
+
+    Usado pelo envio na requisição (com orçamento: `threads_max_wait`/`evolution_timeout` limitados) e pelo worker (sem orçamento).
+    """
+    claimed = claim_target(target_id)
+    if claimed is None:
+        return None
+    if claimed.platform == SocialAccount.Platform.THREADS:
+        _publish_threads_target(claimed, pool.threads(), max_wait=threads_max_wait)
+    elif claimed.platform == SocialAccount.Platform.WHATSAPP_STATUS:
+        _publish_whatsapp_target(claimed, pool.evolution(), timeout=evolution_timeout)
+    else:
+        _publish_target(claimed, pool.graph())
+    return PublicationTarget.objects.filter(pk=target_id).values_list("status", flat=True).first()
+
+
+# --- envio na requisição (modo inline) ------------------------------------------
 def send_pending(
     publication: Publication,
     *,
@@ -134,24 +207,25 @@ def send_pending(
     batch_size: int | None = None,
     clock=time.monotonic,
 ) -> BatchResult:
-    """Envia até `batch_size` alvos pendentes/falhos de qualquer plataforma. Alvos `published` nunca são tocados.
+    """Envia na requisição até `batch_size` alvos pendentes/falhos de qualquer plataforma (modo `inline`).
 
     O lote é um TETO; o tempo manda (ADR-0009): com menos de 40 s restantes do orçamento
     (`PUBLISH_REQUEST_BUDGET_SECONDS`) nenhum novo alvo é iniciado e o resto fica `pending`.
+    Alvo `failed` volta a `pending` (atômico) antes de ser reivindicado; `uncertain` nunca é reenviado aqui.
     """
+    recover_stale_sending()
+    pool = ClientPool(client, threads_client, evolution_client)
     limit = batch_size or settings.PUBLISH_BATCH_SIZE
     started_at = clock()
     budget = settings.PUBLISH_REQUEST_BUDGET_SECONDS
-    candidates = list(
-        publication.targets.filter(status__in=[S.PENDING, S.FAILED, S.SENDING]).select_related("account")
-    )
+    candidates = list(publication.targets.filter(status__in=[S.PENDING, S.FAILED]).select_related("account"))
     candidates.sort(key=lambda t: (t.status != S.PENDING, t.page_name, t.id))  # pendentes primeiro
 
-    attempted = published = failed = 0
+    attempted = published = failed = uncertain = 0
     for index, target in enumerate(candidates):
         if attempted >= limit:
             break
-        if target.account_id is None:  # conta desconectada: falha sem chamar a Meta
+        if target.account_id is None:  # conta desconectada: falha sem chamar a plataforma
             if not (target.status == S.FAILED and target.error_message == MSG_DISCONNECTED):
                 _mark_failed(target, MSG_DISCONNECTED, "disconnected")
             continue
@@ -159,30 +233,38 @@ def send_pending(
         if remaining_time < MIN_SECONDS_TO_START_TARGET:
             logger.warning("publish_budget_exhausted remaining=%d", len(candidates) - index)
             break
-        claimed = claim_target(target.pk)
-        if claimed is None:
+        if target.status == S.FAILED and not requeue_target(target.pk):
+            continue
+        # A chamada nunca passa do orçamento: min(config, restante − folga). A sondagem de estado (≤ 10 s) cabe na folga.
+        outcome = process_target(
+            target.pk,
+            pool,
+            threads_max_wait=remaining_time - WAIT_SAFETY_MARGIN,
+            evolution_timeout=min(settings.EVOLUTION_TIMEOUT_SECONDS, remaining_time - WAIT_SAFETY_MARGIN),
+        )
+        if outcome is None:
             continue
         attempted += 1
-        if claimed.platform == SocialAccount.Platform.THREADS:
-            threads_client = threads_client or ThreadsClient.from_settings()
-            ok = _publish_threads_target(claimed, threads_client, max_wait=remaining_time - WAIT_SAFETY_MARGIN)
-        elif claimed.platform == SocialAccount.Platform.WHATSAPP_STATUS:
-            if evolution_client is None and evolution_configured():
-                evolution_client = EvolutionClient.from_settings()
-            # A chamada nunca passa do orçamento: min(config, restante − folga). A sondagem de estado (≤ 10 s) cabe na folga.
-            timeout = min(settings.EVOLUTION_TIMEOUT_SECONDS, remaining_time - WAIT_SAFETY_MARGIN)
-            ok = _publish_whatsapp_target(claimed, evolution_client, timeout=timeout)
-        else:
-            client = client or GraphClient.from_settings()
-            ok = _publish_target(claimed, client)
-        if ok:
+        if outcome == S.PUBLISHED:
             published += 1
+        elif outcome == S.UNCERTAIN:
+            uncertain += 1
         else:
             failed += 1
 
     remaining = publication.targets.filter(status=S.PENDING, account__isnull=False).count()
-    logger.info("publish_batch size=%d ok=%d failed=%d", attempted, published, failed)
-    return BatchResult(attempted=attempted, published=published, failed=failed, remaining=remaining)
+    logger.info("publish_batch size=%d ok=%d failed=%d uncertain=%d", attempted, published, failed, uncertain)
+    return BatchResult(attempted=attempted, published=published, failed=failed, remaining=remaining, uncertain=uncertain)
+
+
+def _uncertain_code(exc) -> str:
+    return exc.code if exc.code in ("timeout", "interrupted") else "interrupted"
+
+
+def _mark_uncertain(target: PublicationTarget, code: str) -> None:
+    """Resultado desconhecido: o alvo vira `uncertain` (nunca é reenviado sozinho). Log só com o motivo."""
+    PublicationTarget.objects.filter(pk=target.pk).update(status=S.UNCERTAIN, error_message=MSG_UNCERTAIN, error_code=code)
+    logger.warning("target_uncertain reason=%s n=1", code)
 
 
 def _publish_target(target: PublicationTarget, client: GraphClient) -> bool:
@@ -205,6 +287,9 @@ def _publish_target(target: PublicationTarget, client: GraphClient) -> bool:
         _mark_failed(target, MSG_IMAGE_MISSING, "image_missing")
         return False
     except MetaApiError as exc:
+        if exc.outcome_unknown:  # o upload foi enviado e a resposta não veio: a Meta pode ter publicado
+            _mark_uncertain(target, _uncertain_code(exc))
+            return False
         message = friendly_error(exc)
         if exc.is_token_error:
             SocialAccount.objects.filter(pk=account.pk).update(
@@ -271,6 +356,9 @@ def _publish_threads_target(target: PublicationTarget, client: ThreadsClient, *,
         _mark_failed(target, message, exc.status.lower())
         return False
     except MetaApiError as exc:
+        if exc.outcome_unknown:  # `threads_publish` enviado sem resposta: o Threads pode ter publicado
+            _mark_uncertain(target, _uncertain_code(exc))
+            return False
         if exc.is_token_error:
             SocialAccount.objects.filter(pk=account.pk).update(
                 status=SocialAccount.Status.NEEDS_REAUTH,
@@ -329,6 +417,9 @@ def _publish_whatsapp_target(target: PublicationTarget, client: EvolutionClient 
         _mark_failed(target, MSG_IMAGE_MISSING, "image_missing")
         return False
     except EvolutionApiError as exc:
+        if exc.outcome_unknown:  # `sendStatus` enviado sem resposta: a Evolution pode ter publicado (UAT: duplicou)
+            _mark_uncertain(target, _uncertain_code(exc))
+            return False
         _mark_failed(target, _whatsapp_failure_message(exc, account, key, client), exc.code)
         return False
 
@@ -353,8 +444,6 @@ def _whatsapp_failure_message(exc: EvolutionApiError, account: SocialAccount, ke
     if code in STATE_PROBE_CODES and _instance_not_open(client, account, key):
         evolution_connect.needs_reauth(account)
         return MSG_WHATSAPP_REAUTH
-    if code == "timeout":  # resultado incerto: a Evolution pode concluir depois que o Hub desistiu (UAT, ~2265 contatos)
-        return MSG_WHATSAPP_TIMEOUT
     if code == "rate_limit":
         return MSG_WHATSAPP_RATE_LIMIT
     if code == "rejected":

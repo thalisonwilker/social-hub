@@ -186,17 +186,22 @@ class PublishingTests(TestCase):
         target.refresh_from_db()
         self.assertEqual((target.status, target.attempts), (S.SENDING, 1))
 
-    def test_AC_13_recent_sending_is_not_sent_but_stale_sending_is_reclaimed(self):
+    def test_AC_13_recent_sending_is_not_sent_and_stale_sending_becomes_uncertain_never_resent(self):
+        """Spec 0007 (AC-8): `sending` recente não é enviado; `sending` vencido vira Incerto (`stale`) e NUNCA é reenviado."""
         pub, _ = self.create(1)
         target = pub.targets.get()
         PublicationTarget.objects.filter(pk=target.pk).update(status=S.SENDING, last_attempt_at=timezone.now() - timedelta(minutes=1))
         self.assertEqual(self.send(pub).attempted, 0)
         self.publish.assert_not_called()
-        PublicationTarget.objects.filter(pk=target.pk).update(last_attempt_at=timezone.now() - timedelta(minutes=6))
+        self.assertEqual(PublicationTarget.objects.get(pk=target.pk).status, S.SENDING)
+        PublicationTarget.objects.filter(pk=target.pk).update(last_attempt_at=timezone.now() - timedelta(minutes=16))
         with self.assertLogs("apps.social.meta", level=logging.WARNING) as logs:
             result = self.send(pub)
-        self.assertEqual(result.published, 1)
-        self.assertIn("target_reclaimed", "\n".join(logs.output))
+        self.assertEqual((result.attempted, result.published), (0, 0))
+        self.publish.assert_not_called()  # a recuperação de 5 min das 0003–0006 deixou de existir
+        target.refresh_from_db()
+        self.assertEqual((target.status, target.error_code), (S.UNCERTAIN, "stale"))
+        self.assertIn("target_uncertain reason=stale", "\n".join(logs.output))
 
     def test_AC_12_published_target_can_never_be_claimed(self):
         pub, _ = self.create(1)

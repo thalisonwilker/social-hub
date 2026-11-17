@@ -340,8 +340,8 @@ class ThreadsDispatchTests(PublicationTestMixin, TestCase):
         PublicationTarget.objects.filter(pk=target.pk).update(status=S.PUBLISHED)
         self.assertIsNone(publishing.claim_target(target.pk))
 
-    def test_AC_22_recent_sending_is_skipped_and_stale_sending_resumes_by_container_id(self):
-        """AC-22: sending < 5 min não reenvia; ≥ 5 min é recuperado (log) e retoma pelo container já gravado."""
+    def test_AC_22_recent_sending_is_skipped_and_stale_sending_becomes_uncertain_keeping_the_container(self):
+        """Spec 0007 (AC-8): `sending` recente não reenvia; vencido vira Incerto (`stale`), sem reenviar e mantendo o container gravado."""
         pub = self.publication([self.threads])
         target = self.target(pub)
         PublicationTarget.objects.filter(pk=target.pk).update(
@@ -349,13 +349,15 @@ class ThreadsDispatchTests(PublicationTestMixin, TestCase):
         with threads_mocks() as api:
             self.assertEqual(publishing.send_pending(pub).attempted, 0)
         api["create_text_container"].assert_not_called()
-        PublicationTarget.objects.filter(pk=target.pk).update(last_attempt_at=timezone.now() - timedelta(minutes=6))
+        PublicationTarget.objects.filter(pk=target.pk).update(last_attempt_at=timezone.now() - timedelta(minutes=16))
         with threads_mocks() as api, self.assertLogs("apps.social.meta", level=logging.WARNING) as logs:
             result = publishing.send_pending(pub)
-        self.assertEqual(result.published, 1)
-        api["create_text_container"].assert_not_called()  # retomou pelo container
-        api["publish_container"].assert_called_once_with("900", "threads-long-token", "c-preso")
-        self.assertIn("target_reclaimed", "\n".join(logs.output))
+        self.assertEqual((result.attempted, result.published), (0, 0))
+        for mock_ in api.values():
+            mock_.assert_not_called()
+        target.refresh_from_db()
+        self.assertEqual((target.status, target.error_code, target.external_container_id), (S.UNCERTAIN, "stale", "c-preso"))
+        self.assertIn("target_uncertain reason=stale", "\n".join(logs.output))
 
     # ---- demais ----------------------------------------------------------
     @override_settings(THREADS_APP_SECRET="")

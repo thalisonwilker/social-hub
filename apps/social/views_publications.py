@@ -36,11 +36,21 @@ def report_batch(request, result):
     if result.attempted == 0 and result.remaining == 0:
         messages.info(request, "Nada a enviar: não há Páginas pendentes ou com falha que possam ser reenviadas.")
         return
-    if result.failed == 0:
+    if result.failed == 0 and result.uncertain == 0:
         count = result.published
         messages.success(request, f"Publicado em {count} Página." if count == 1 else f"Publicado em {count} Páginas.")
-    else:
+    elif result.failed == 0:  # só incertos: o Hub não sabe se a plataforma publicou (spec 0007)
+        messages.warning(
+            request,
+            f"{result.published} publicada(s) e {result.uncertain} incerta(s). Confira na plataforma e resolva abaixo.",
+        )
+    elif result.uncertain == 0:
         messages.warning(request, f"{result.published} publicada(s) e {result.failed} com falha. Veja os detalhes abaixo.")
+    else:
+        messages.warning(
+            request,
+            f"{result.published} publicada(s), {result.failed} com falha e {result.uncertain} incerta(s). Veja os detalhes abaixo.",
+        )
     if result.remaining:
         messages.info(request, f"{result.remaining} Página(s) ainda pendente(s). Use “Continuar envio”.")
 
