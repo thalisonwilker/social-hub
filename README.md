@@ -206,7 +206,7 @@ formulário. Não há OAuth nem **QR** no Hub: o pareamento é feito na Evolutio
    e reinicie o serviço. Sem ela a integração fica desligada (as outras plataformas seguem normais).
 2. Em **Contas conectadas → Adicionar WhatsApp**, informe o **nome da instância** e a **chave da instância** (a chave da própria instância, **nunca a chave global** da Evolution).
    O Hub confere que a instância está conectada (`open`) e guarda a chave **cifrada**; ela não é exibida de novo.
-3. Em **Nova publicação**, marque o grupo **Status do WhatsApp**. O texto vira o Status (ou a legenda da imagem) e a audiência é a de **todos os contatos** do número.
+3. Em **Nova publicação**, marque o grupo **Status do WhatsApp**. O texto vira o Status (ou a legenda da imagem) e a audiência é a de **todos os contatos** do número. Atenção: são os contatos que a **Evolution** conhece (com nome), que podem incluir pessoas fora da sua agenda; confira com `POST /chat/findContacts/{instância}` antes de publicar.
 
 ### Regras
 - A imagem é **opcional** com WhatsApp (continua obrigatória com Página do Facebook). Ela vai **em base64** na chamada: **não** precisa de túnel nem de `PUBLIC_BASE_URL`.

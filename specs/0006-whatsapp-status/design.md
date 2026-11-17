@@ -138,7 +138,8 @@ Dívida assumida: sem idempotência forte em timeout após envio (mesma janela d
 | 2 | Lista de contatos, grupos/canais, vídeo | 1 |
 
 ## Questões em aberto
-- [~] **Contrato do endpoint** — Evolution **2.3.7** (sua instância). Confirmado: corpo **plano**, rota `POST /message/sendStatus/{instância}`, `connectionState` → `instance.state`; texto exige `backgroundColor` e `font`; imagem em **base64 puro falha** (`ENAMETOOLONG`, tratado como caminho de arquivo) → o cliente envia **data URI** `data:<tipo>;base64,...`. A confirmar no UAT: o data URI publica de fato, e `allContacts` (contatos com nome conhecidos pela instância).
+- [x] **Contrato do endpoint** — Evolution **2.3.7** (sua instância), confirmado no UAT (2026-11-17, `scripts/uat_evolution.py`): `connectionState` → `HTTP 200` com `instance.state='open'`; Status de **texto** (com `backgroundColor` e `font`) → `HTTP 201` com `key.id`; imagem em **base64 puro** → `HTTP 400` (`ENAMETOOLONG`, tratado como caminho de arquivo); imagem como **data URI** (`data:image/jpeg;base64,...`) → `HTTP 201` com `key.id`. Falta só conferir no celular que o Status aparece.
+- [ ] **Audiência `allContacts`:** na sua instância a Evolution conhece 2459 contatos, 2265 com nome — `allContacts=true` envia a esses 2265, que **pode incluir pessoas fora da sua agenda** (quem já falou com o número ou está em grupos). Decidir se mantém.
 - [ ] **Limite de texto** do Status e peso da legenda da imagem: não documentado → não validar até o UAT.
 - [ ] **Estado da conexão:** endpoint e valores de `state` a confirmar (`open`/`close`/`connecting`).
 - [x] ADR-0010 (credenciais por instância + host fixo + Baileys) — escrito na T9.

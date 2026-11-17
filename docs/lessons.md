@@ -50,6 +50,8 @@ alwaysApply: false
 - 2026-11-17 · testes/Docker · O `.dockerignore` exclui `README.md` (e `Dockerfile`) da imagem: testes que leem esses arquivos quebram no gate do container · usar `unittest.skipUnless(arquivo.exists())` (rodam localmente, pulam no container).
 - 2026-11-17 · Evolution 2.3.7/Status · `content` de imagem é repassado como `image.url`: base64 PURO é lido como caminho de arquivo (`ENAMETOOLONG ... open '/9j/4AAQ...'` no log da Evolution) · enviar como data URI (`data:image/jpeg;base64,...`); o corpo de texto exige `backgroundColor` e `font`.
 - 2026-11-17 · Evolution/log · O log da própria Evolution (container dela) mostra o motivo real de um Status recusado; o Hub não loga o corpo da resposta de propósito · para depurar o contrato, rode `scripts/uat_evolution.py` e olhe o log da Evolution.
+- 2026-11-17 · Evolution/audiência · `allContacts=true` usa TODOS os contatos que a Evolution guarda com nome (na instância de teste: 2265 de 2459), não a agenda do celular · pode alcançar quem nunca foi salvo; conferir `POST /chat/findContacts/{instância}` antes de publicar e considerar `statusJidList`.
+- 2026-11-17 · Python/macOS · O Python do python.org não traz certificados raiz (`CERTIFICATE_VERIFY_FAILED` em qualquer HTTPS) · scripts usam `/etc/ssl/cert.pem` (ou `Install Certificates.command`).
 
 ## Promovidas (histórico curto)
 > Rastro de para onde foram as lições podadas — só o link, sem reexplicar. Poda este histórico também.

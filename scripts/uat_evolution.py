@@ -19,6 +19,7 @@ import base64
 import getpass
 import json
 import os
+import ssl
 import sys
 import urllib.error
 import urllib.request
@@ -28,6 +29,16 @@ ROOT = Path(__file__).resolve().parent.parent
 TIMEOUT = 60
 
 
+def _ssl_context():
+    """Python instalado pelo python.org no macOS pode não ter certificados; usa os do sistema se existirem."""
+    context = ssl.create_default_context()
+    for cafile in ("/etc/ssl/cert.pem", "/opt/homebrew/etc/ca-certificates/cert.pem"):
+        if os.path.exists(cafile):
+            context.load_verify_locations(cafile=cafile)
+            break
+    return context
+
+
 def call(method, url, key=None, body=None):
     data = json.dumps(body).encode() if body is not None else None
     headers = {"Content-Type": "application/json"} if body is not None else {}
@@ -35,11 +46,13 @@ def call(method, url, key=None, body=None):
         headers["apikey"] = key
     request = urllib.request.Request(url, data=data, method=method, headers=headers)
     try:
-        with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
+        with urllib.request.urlopen(request, timeout=TIMEOUT, context=_ssl_context()) as response:
             return response.status, response.read()
     except urllib.error.HTTPError as exc:
         return exc.code, exc.read()
-    except Exception as exc:  # rede, DNS, timeout
+    except urllib.error.URLError as exc:  # rede, DNS, TLS, timeout: mostra o motivo (sem URL nem chave)
+        return None, f"{type(exc).__name__}: {getattr(exc, 'reason', '')}".encode()
+    except Exception as exc:
         return None, type(exc).__name__.encode()
 
 
