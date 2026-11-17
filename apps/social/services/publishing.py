@@ -142,6 +142,26 @@ def requeue_failed(publication: Publication) -> int:
     return sum(1 for pk in ids if requeue_target(pk))
 
 
+def resolve_as_published(target_id: int) -> bool:
+    """"Já foi publicado": `uncertain → published` (atômico), sem link nem id externo. Funciona sem conta. Só vale para `uncertain`."""
+    updated = PublicationTarget.objects.filter(pk=target_id, status=S.UNCERTAIN).update(
+        status=S.PUBLISHED, published_at=timezone.now(), error_message="", error_code="", permalink="", external_post_id=""
+    )
+    if updated:
+        logger.info("target_resolved action=published")
+    return updated == 1
+
+
+def resolve_resend(target_id: int) -> bool:
+    """"Reenviar": `uncertain → pending` (atômico), só com conta. O usuário assume o risco de duplicar o post."""
+    updated = PublicationTarget.objects.filter(pk=target_id, status=S.UNCERTAIN, account__isnull=False).update(
+        status=S.PENDING, error_message="", error_code=""
+    )
+    if updated:
+        logger.info("target_resolved action=resend")
+    return updated == 1
+
+
 def recover_sending(*, reason: str, older_than: timedelta | None = None) -> int:
     """`sending → uncertain` (NUNCA para `pending`): o dono do alvo morreu ou passou do prazo e o resultado é desconhecido."""
     queryset = PublicationTarget.objects.filter(status=S.SENDING)

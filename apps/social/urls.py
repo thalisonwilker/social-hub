@@ -24,6 +24,12 @@ urlpatterns = [
     path("publicacoes/nova/", views_publications.PostNewView.as_view(), name="post_new"),
     path("publicacoes/<int:pk>/", views_publications.PostDetailView.as_view(), name="post_detail"),
     path("publicacoes/<int:pk>/enviar/", views_publications.PostSendView.as_view(), name="post_send"),
+    path("publicacoes/<int:pk>/estado/", views_publications.PostStateView.as_view(), name="post_state"),
+    path(
+        "publicacoes/<int:pk>/alvos/<int:target_pk>/resolver/",
+        views_publications.TargetResolveView.as_view(),
+        name="target_resolve",
+    ),
     path("publicacoes/<int:pk>/imagem/", views_publications.PostImageView.as_view(), name="post_image"),
     re_path(r"^publico/imagem\.(?P<ext>jpg|png)$", views_public.PublicImageView.as_view(), name="public_image"),
     path(

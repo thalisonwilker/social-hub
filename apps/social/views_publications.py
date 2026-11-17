@@ -3,14 +3,14 @@ import logging
 
 from django.contrib import messages
 from django.db import DatabaseError
-from django.http import FileResponse, Http404
+from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views import View
 from django.views.generic import TemplateView
 
-from .conf import evolution_configured, meta_configured, threads_configured
+from .conf import evolution_configured, meta_configured, publish_in_background, threads_configured
 from .forms import PublicationForm
-from .models import Publication, SocialAccount
+from .models import Publication, SocialAccount, WorkerHeartbeat
 from .services import publishing, threads_tokens
 
 logger = logging.getLogger("apps.social.meta")
@@ -20,6 +20,14 @@ MSG_NO_ACTIVE_PAGES = "Conecte ao menos uma Página ativa, um perfil do Threads 
 MSG_THREADS_NOT_CONFIGURED = "Integração com o Threads não configurada."
 MSG_WHATSAPP_NOT_CONFIGURED = publishing.MSG_WHATSAPP_NOT_CONFIGURED
 MSG_SAVE_FAILED = "Não foi possível salvar a publicação. Tente novamente."
+MSG_QUEUED = "Publicação enfileirada: o envio acontece em segundo plano."
+MSG_REQUEUED = "Reenvio enfileirado: o envio acontece em segundo plano."
+MSG_NOTHING_TO_REQUEUE = "Nada a reenviar: não há alvos com falha que possam voltar para a fila."
+MSG_NOT_UNCERTAIN = "Este alvo não está incerto: nada foi alterado."
+MSG_RESOLVED_PUBLISHED = "Marcado como já publicado."
+MSG_RESOLVED_RESEND = "Reenvio enfileirado: o envio acontece em segundo plano."
+MSG_RESEND_NEEDS_ACCOUNT = "Este alvo não tem conta conectada: só dá para marcar como já publicado."
+MSG_UNKNOWN_ACTION = "Ação desconhecida: nada foi alterado."
 CONFIRM = "Será publicado de verdade nas Páginas selecionadas. Continuar?"
 
 
@@ -164,7 +172,10 @@ class PostNewView(View):
             form.add_error(None, MSG_SAVE_FAILED)
             return self._render(request, form, accounts, status=500)
 
-        report_batch(request, publishing.send_pending(publication))
+        if publish_in_background():  # só enfileira: o worker envia fora da requisição (spec 0007)
+            messages.success(request, MSG_QUEUED)
+        else:
+            report_batch(request, publishing.send_pending(publication))
         return redirect("social:post_detail", pk=publication.pk)
 
 
@@ -185,17 +196,75 @@ class PostDetailView(View):
 
 
 class PostSendView(View):
-    """Continua o envio (pendentes) e tenta de novo as falhas. Só POST."""
+    """"Tentar novamente". Modo `worker`: reenfileira os alvos `failed` (nada é enviado na requisição). Modo `inline`: envia na hora. Só POST."""
 
     http_method_names = ["post", "options"]
 
     def post(self, request, pk):
         publication = get_publication_or_404(request, pk)
+        if publish_in_background():
+            if publishing.requeue_failed(publication):
+                messages.success(request, MSG_REQUEUED)
+            else:
+                messages.info(request, MSG_NOTHING_TO_REQUEUE)
+            return redirect("social:post_detail", pk=publication.pk)
         if not meta_configured():
             messages.error(request, MSG_NOT_CONFIGURED)
             return redirect("social:post_detail", pk=publication.pk)
         report_batch(request, publishing.send_pending(publication))
         return redirect("social:post_detail", pk=publication.pk)
+
+
+class TargetResolveView(View):
+    """Resolve um alvo Incerto: "Já foi publicado" ou "Reenviar" (assume o risco de duplicar). Só POST, só o dono."""
+
+    http_method_names = ["post", "options"]
+
+    def post(self, request, pk, target_pk):
+        publication = get_publication_or_404(request, pk)
+        target = get_object_or_404(publication.targets, pk=target_pk)
+        action = request.POST.get("acao", "")
+        if action not in ("publicado", "reenviar"):
+            messages.error(request, MSG_UNKNOWN_ACTION)
+        elif not target.is_resolvable:
+            messages.error(request, MSG_NOT_UNCERTAIN)
+        elif action == "publicado":
+            if publishing.resolve_as_published(target.pk):
+                messages.success(request, MSG_RESOLVED_PUBLISHED)
+            else:
+                messages.error(request, MSG_NOT_UNCERTAIN)
+        elif not target.can_resend:
+            messages.error(request, MSG_RESEND_NEEDS_ACCOUNT)
+        elif publishing.resolve_resend(target.pk):
+            if publish_in_background():
+                messages.success(request, MSG_RESOLVED_RESEND)
+            else:  # modo inline: envia na requisição, como "Tentar novamente"
+                report_batch(request, publishing.send_pending(publication))
+        else:
+            messages.error(request, MSG_NOT_UNCERTAIN)
+        return redirect("social:post_detail", pk=publication.pk)
+
+
+class PostStateView(View):
+    """Estado mínimo para o polling da tela (spec 0007): só ids, estados, contagens e se há worker. Sem texto, contas nem mensagens."""
+
+    http_method_names = ["get", "head", "options"]
+
+    def get(self, request, pk):
+        publication = get_publication_or_404(request, pk)
+        targets = list(publication.targets.all())
+        in_progress = {publishing.S.PENDING, publishing.S.SENDING}
+        response = JsonResponse(
+            {
+                "status": publication.status,
+                "counts": publication.status_counts(),
+                "targets": [{"id": t.pk, "status": t.status} for t in targets],
+                "worker": {"active": WorkerHeartbeat.is_active()},
+                "done": not any(t.status in in_progress for t in targets),
+            }
+        )
+        response["Cache-Control"] = "no-store"
+        return response
 
 
 class PostImageView(View):
