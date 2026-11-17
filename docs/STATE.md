@@ -14,10 +14,10 @@ alwaysApply: true
 
 ## Em andamento / próximo passo
 > O que está aberto agora e a **próxima ação concreta** (não "continuar a feature" — diga o passo).
-- Feature ativa: `specs/0003-publicar-no-facebook/` — implementada (tasks 1–10); falta o **UAT real** (a 0002 já foi validada).
-- Próximo passo: rodar o roteiro de UAT com 2 Páginas de teste (publicar texto + imagem nas duas; forçar uma falha e **tentar de novo**;
-  conferir se o link do post abre — `facebook.com/{post_id}`; se houver 6+ Páginas, validar os lotes). Depois marcar a spec como
-  `implementado` e escolher a próxima feature (agendamento exige fila/worker; ou insights).
+- Feature ativa: `specs/0004-threads-conectar-e-publicar/` — implementada (tasks 1–11); falta o **UAT real** (e o da 0003, ainda pendente).
+- Próximo passo: com o túnel ativo, acessar o Hub pela URL do túnel e rodar o UAT do Threads: conectar o perfil de teste → publicar **só texto** →
+  publicar **Facebook + Threads** → forçar uma falha e **tentar de novo**. Registrar: se a Meta aceita **POST** em `th_exchange_token`/`th_refresh_token` e **Bearer**
+  nos GETs, o tempo do container de texto e os códigos de erro reais. Depois marcar a spec 0004 como `implementado`.
 
 ## Decisões recentes
 > Resumo cronológico. Se for difícil de reverter, vire um ADR e linke aqui.
@@ -25,16 +25,21 @@ alwaysApply: true
 - 2026-11-17: OAuth com `config_id` + cliente Graph próprio no app `social`; Graph API fixada em v27.0 — [ADR-0003](architecture/adr/0003-integracao-meta-oauth-config-id-e-cliente-graph-proprio.md)
 - 2026-11-17: Publicação síncrona em lotes de 5, idempotente por claim atômico — [ADR-0004](architecture/adr/0004-publicacao-sincrona-em-lotes-idempotente.md)
 - 2026-11-17: Imagens sanitizadas (Pillow), volume `/media` e entrega por view autenticada — [ADR-0005](architecture/adr/0005-imagens-sanitizadas-volume-dedicado-e-entrega-autenticada.md)
+- 2026-11-17: Threads com cliente próprio e token de 60 dias renovado sob demanda — [ADR-0006](architecture/adr/0006-threads-cliente-proprio-token-60-dias-renovacao-sob-demanda.md)
+- 2026-11-17: Publicação por plataforma (despacho por alvo) e formulário misto com imagem condicional — [ADR-0007](architecture/adr/0007-publicacao-por-plataforma-despacho-por-alvo-e-formulario-misto.md)
 - 2026-11-17: Seleção multi-Página numa tela do Hub; Páginas pendentes ficam na sessão, com tokens cifrados (TTL 10 min).
 
 ## Bloqueios
-- [ ] UAT real da feature 0003 depende de você publicar nas suas Páginas de teste (a publicação é real e não há exclusão pelo Hub).
+- [ ] UAT real das features 0003 e 0004 depende de você publicar nas suas Páginas/perfil de teste (a publicação é real e o Hub não exclui posts).
+- [ ] O túnel de desenvolvimento muda de URL ao reiniciar: atualizar a Meta (Threads) e o `THREADS_REDIRECT_URI` quando isso acontecer; fechar o túnel ao terminar.
 
 ## Ideias adiadas / backlog técnico
 - Cofre de segredos (Vault/KMS) para a chave Fernet → quando houver mais de um ambiente ou time.
 - Limitação de tentativas de login (ex.: django-axes) → antes de expor o sistema publicamente.
 - Lint e análise estática na CI (ruff, SAST) → ao configurar a esteira de CI.
-- Renovação automática de tokens e webhooks → junto com o agendamento.
+- Renovação do token do Threads em segundo plano e webhooks → junto com o agendamento.
+- Callbacks de desinstalação e exclusão de dados do Threads → antes do modo Live / App Review.
+- Imagem no Threads (URL pública assinada), respostas/insights e Instagram → próximas features.
 - **Janela de duplicidade ao reenviar alvo `sending` preso** → [issue #1](https://github.com/thalisonwilker/social-hub/issues/1); revisitar ao introduzir fila/agendamento.
 - Limpeza automática de imagens antigas e armazenamento externo (S3) → quando o volume `/media` crescer.
 

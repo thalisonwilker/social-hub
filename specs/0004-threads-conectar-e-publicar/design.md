@@ -116,7 +116,7 @@ O claim atômico, o lote (`PUBLISH_BATCH_SIZE`), o retry, o `needs_reauth` e o m
 
 `SocialAccount` (+): `Platform.THREADS = "threads"`; `username` (CharField, blank); `token_expires_at` (DateTime, nulo);
 `token_refreshed_at` (DateTime, nulo). Para o Facebook os campos de token ficam nulos (Páginas não expiram).
-`PublicationTarget` (+): `external_container_id` (CharField, blank).
+`PublicationTarget` (+): `external_container_id` (CharField, blank) e `platform` (snapshot da plataforma do destino, padrão `facebook_page`, para o histórico e o despacho sobreviverem à desconexão da conta).
 `Publication` (±): `image` e `image_content_type` passam a `blank=True`.
 
 ### Componentes

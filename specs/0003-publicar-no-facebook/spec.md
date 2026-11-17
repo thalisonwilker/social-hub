@@ -6,7 +6,7 @@ alwaysApply: true
 
 # Spec — Publicar no Facebook (texto + imagem, várias Páginas)
 
-> **Fonte da verdade.** Status: rascunho
+> **Fonte da verdade.** Status: aprovado
 > Os critérios de aceite são o contrato, o oráculo de teste e o prompt de implementação.
 
 ## Resumo

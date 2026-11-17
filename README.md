@@ -3,8 +3,9 @@
 Plataforma web para centralizar o gerenciamento e a publicação de conteúdos em redes sociais (Facebook, Instagram e Threads).
 
 > **Estado atual:** estrutura base, autenticação, dashboard (dados **demonstrativos**), infraestrutura Docker,
-> **integração com Páginas do Facebook** (conectar, listar, verificar e desconectar) e **publicação de texto + imagem
-> em uma ou várias Páginas**. Agendamento e insights reais **ainda não** foram implementados.
+> **integração com Páginas do Facebook** (conectar, listar, verificar e desconectar), **publicação de texto + imagem
+> em uma ou várias Páginas** e **Threads** (conectar perfil e publicar texto, junto ou separado do Facebook).
+> Agendamento e insights reais **ainda não** foram implementados.
 
 ## Stack
 
@@ -137,6 +138,47 @@ motivo do erro) e você pode **tentar de novo só as que falharam**. Detalhes: `
 - **Limitação conhecida:** se o servidor cair exatamente entre a Meta publicar e o Hub registrar o resultado, o reenvio
   (após 5 min) pode duplicar o post. Tratamento em [issue #1](https://github.com/thalisonwilker/social-hub/issues/1).
 
+## Threads (perfil + texto)
+
+Conecta um perfil do Threads (login próprio) e publica **texto** nele — sozinho ou **junto com Páginas do Facebook** no mesmo
+formulário. No Threads vai **só o texto** (até 500 de "peso": emoji contam por bytes; no máximo 5 links diferentes); a imagem é
+obrigatória apenas se houver Página do Facebook marcada. Detalhes: `specs/0004-threads-conectar-e-publicar/`.
+
+### Configurar o app na Meta
+1. No app, adicione o caso de uso **Acessar a API do Threads** e, em *Permissões e recursos*, `threads_basic` e `threads_content_publish`.
+2. Nas **configurações do caso de uso do Threads**: copie o **ID do app do Threads** e a **chave secreta do app do Threads**
+   (são **diferentes** das do app principal) e cadastre em *Redirecionar URLs de callback* o valor de `THREADS_REDIRECT_URI` — **HTTPS obrigatório**.
+   Deixe vazios os callbacks de desinstalação e exclusão por enquanto.
+3. Em **Funções do app → Funções**, adicione seu usuário como **Testador do Threads** e **aceite o convite no Threads**
+   (*Configurações → Conta → Permissões de sites → Convites*). O perfil precisa ser **público**.
+
+### Variáveis no `.env`
+`THREADS_APP_ID`, `THREADS_APP_SECRET`, `THREADS_REDIRECT_URI` (HTTPS, idêntica à da Meta), `THREADS_GRAPH_VERSION` (`v1.0`),
+`THREADS_REFRESH_WINDOW_DAYS` (`30`) e `THREADS_CONTAINER_WAIT_SECONDS` (`20`). Sem as três primeiras o Threads fica
+desabilitado e o Facebook não é afetado.
+
+### Desenvolvimento: túnel HTTPS
+A Meta exige HTTPS no redirect do Threads, então em desenvolvimento use um túnel (exemplo sem instalar nada, com Docker):
+
+```bash
+docker run --rm --name social-hub-tunnel cloudflare/cloudflared:latest tunnel --no-autoupdate --url http://host.docker.internal:8080
+```
+
+1. Anote a URL `https://….trycloudflare.com` impressa. **Ela muda a cada vez que o túnel sobe**: atualize a URL de callback na Meta
+   **e** o `THREADS_REDIRECT_URI` no `.env` (`https://<url>/contas/threads/callback/`) e recrie o container (`docker compose up -d --force-recreate`).
+2. No `.env`, só em desenvolvimento: `DJANGO_ALLOWED_HOSTS` com `.trycloudflare.com`, `DJANGO_CSRF_TRUSTED_ORIGINS=https://*.trycloudflare.com`
+   e `DJANGO_BEHIND_PROXY=true`.
+3. **Acesse o Hub pela URL do túnel** (faça login nela) antes de clicar em *Conectar Threads*: o cookie de sessão é por endereço, e o Hub avisa
+   se você iniciar por outro host.
+4. Enquanto o túnel está aberto, o Hub fica **acessível pela internet**: use senha forte e feche o túnel ao terminar
+   (`docker rm -f social-hub-tunnel`). Em produção use um domínio próprio com TLS.
+
+### Tokens e limites
+- O token do Threads vale **60 dias**. Ele é renovado **ao publicar ou ao Verificar** quando faltar menos de 30 dias; sem uso por mais de
+  60 dias a conta passa a "Reconexão necessária" e basta **Reconectar**.
+- Limite da Meta: 250 publicações por 24 h por perfil. Imagem, vídeo e respostas no Threads ainda não existem.
+- Os callbacks de **desinstalação** e **exclusão de dados** ainda não são tratados (exigidos para o modo Live da Meta).
+
 ## Configuração (variáveis de ambiente)
 
 | Variável | Padrão | Descrição |
@@ -151,6 +193,7 @@ motivo do erro) e você pode **tentar de novo só as que falharam**. Detalhes: `
 | `WEB_PORT` | `8000` | Porta publicada no host |
 | `GUNICORN_WORKERS` | `2` | Workers do Gunicorn |
 | `META_*` | — | Integração com o Facebook (veja a seção acima) |
+| `THREADS_*` | — | Integração com o Threads (veja a seção acima) |
 | `PUBLISH_BATCH_SIZE` | `5` | Páginas enviadas por requisição de publicação |
 | `MEDIA_ROOT` | `/media` (Docker) | Pasta das imagens de publicação |
 
@@ -179,4 +222,4 @@ docker compose cp web:/data/backup.sqlite3 ./backup.sqlite3
 
 ## Próximas etapas
 
-Agendamento (exige fila/worker), insights reais na dashboard, mais de uma imagem/vídeo/só texto, e as integrações com Instagram e Threads — todos no app `social`.
+Agendamento (exige fila/worker), insights reais na dashboard, imagem no Threads (exige URL pública) e Instagram — todos no app `social`.
