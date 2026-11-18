@@ -40,7 +40,7 @@ class ThreadsClientTests(SimpleTestCase):
         self.assertEqual(f"{url.scheme}://{url.netloc}{url.path}", "https://threads.com/oauth/authorize")
         q = parse_qs(url.query)
         self.assertEqual(q["client_id"], ["1602810271151684"])
-        self.assertEqual(q["scope"], ["threads_basic,threads_content_publish"])
+        self.assertEqual(q["scope"], ["threads_basic,threads_content_publish,threads_delete"])
         self.assertEqual(q["response_type"], ["code"])
         self.assertEqual(q["state"], ["estado-xyz"])
         self.assertEqual(q["redirect_uri"], ["https://abc.trycloudflare.com/contas/threads/callback/"])

@@ -17,6 +17,10 @@ logger = logging.getLogger("apps.social.meta")
 GRAPH_BASE = "https://graph.facebook.com"
 DIALOG_BASE = "https://www.facebook.com"
 TOKEN_ERROR_CODES = {102, 190}  # sessão/token inválido, expirado ou revogado
+PAGE_FIELDS = (
+    "id,name,category,picture{url},access_token,tasks,"
+    "instagram_business_account{id,username,name,profile_picture_url}"
+)
 MAX_PAGES = 10  # limite de páginas de resultado ao listar /me/accounts
 
 
@@ -56,7 +60,7 @@ class BaseGraphClient:
             raise MetaApiError("Resposta da Meta sem token.", endpoint=endpoint)
         return token
 
-    def _request(self, method, path, *, params=None, data=None, files=None, token=None, timeout=None, versioned=True, effect=False) -> dict:
+    def _request(self, method, path, *, params=None, data=None, files=None, token=None, timeout=None, versioned=True, effect=False, label=None) -> dict:
         """`token` vai no header Authorization (Facebook). `versioned=False` omite a versão do caminho (ex.: oauth do Threads).
 
         Credenciais exigidas pela API no corpo/consulta são passadas pelo chamador em `data`/`params`; este método
@@ -64,6 +68,7 @@ class BaseGraphClient:
 
         `effect=True` marca a chamada que CRIA o post (spec 0007): se a resposta não veio, o resultado é desconhecido.
         """
+        name = label or path  # o que vai ao log/erro: `label` evita registrar ids (ex.: id do post ao apagar)
         prefix = f"{self.base_url}/{self.version}" if versioned else self.base_url
         url = f"{prefix}/{path}"
         headers = {"Authorization": f"Bearer {token}"} if token else {}
@@ -73,9 +78,9 @@ class BaseGraphClient:
             )
         except requests.RequestException as exc:
             kind = classify_request_error(exc)  # network (nunca chegou) | timeout | interrupted (pode ter chegado)
-            logger.warning("graph_error endpoint=%s code=%s subcode=%s", path, kind, None)
+            logger.warning("graph_error endpoint=%s code=%s subcode=%s", name, kind, None)
             raise MetaApiError(
-                "Falha de rede ao falar com a Meta.", code=kind, endpoint=path, outcome_unknown=effect and kind != "network"
+                "Falha de rede ao falar com a Meta.", code=kind, endpoint=name, outcome_unknown=effect and kind != "network"
             ) from None
 
         try:
@@ -83,12 +88,12 @@ class BaseGraphClient:
         except ValueError:
             payload = None
         if not isinstance(payload, dict):
-            logger.warning("graph_error endpoint=%s code=%s subcode=%s", path, "bad_response", None)
+            logger.warning("graph_error endpoint=%s code=%s subcode=%s", name, "bad_response", None)
             raise MetaApiError(
                 "Resposta inválida da Meta.",
                 code="bad_response",
                 status=response.status_code,
-                endpoint=path,
+                endpoint=name,
                 outcome_unknown=effect and response.status_code < 400,  # a Meta aceitou, mas o Hub não leu o resultado
             )
 
@@ -97,15 +102,27 @@ class BaseGraphClient:
             # Formatos: {"error": {"code": ..}} (Graph) ou {"error_type": .., "code": ..} (OAuth do Threads).
             source = error if isinstance(error, dict) else payload
             code, subcode = source.get("code"), source.get("error_subcode")
-            logger.warning("graph_error endpoint=%s code=%s subcode=%s", path, code, subcode)
+            logger.warning("graph_error endpoint=%s code=%s subcode=%s", name, code, subcode)
             raise MetaApiError(
                 "A Meta recusou a requisição.",
                 code=code,
                 subcode=subcode,
                 status=response.status_code,
-                endpoint=path,
+                endpoint=name,
             )
         return payload
+
+
+def _instagram_summary(raw) -> dict | None:
+    """Resumo da conta do Instagram vinculada à Página (sem token: o Instagram usa o da Página). None se não há."""
+    if not isinstance(raw, dict) or not raw.get("id"):
+        return None
+    return {
+        "id": str(raw["id"]),
+        "username": str(raw.get("username") or ""),
+        "name": str(raw.get("name") or ""),
+        "picture_url": str(raw.get("profile_picture_url") or ""),
+    }
 
 
 class GraphClient(BaseGraphClient):
@@ -178,7 +195,7 @@ class GraphClient(BaseGraphClient):
         pages: list[dict] = []
         after = None
         for _ in range(MAX_PAGES):
-            params = {"fields": "id,name,category,picture{url},access_token,tasks", "limit": 100}
+            params = {"fields": PAGE_FIELDS, "limit": 100}
             if after:
                 params["after"] = after
             data = self._request("GET", "me/accounts", params=params, token=user_token)
@@ -191,6 +208,7 @@ class GraphClient(BaseGraphClient):
                         "picture_url": ((item.get("picture") or {}).get("data") or {}).get("url", ""),
                         "access_token": item.get("access_token") or None,
                         "tasks": item.get("tasks") or [],
+                        "instagram": _instagram_summary(item.get("instagram_business_account")),
                     }
                 )
             paging = data.get("paging") or {}
@@ -225,3 +243,54 @@ class GraphClient(BaseGraphClient):
                 "Resposta da Meta sem identificador do post.", code="bad_response", endpoint="photos", outcome_unknown=True
             )
         return {"photo_id": data.get("id", ""), "post_id": str(post_id)}
+
+    # --- Exclusão (spec 0010) -------------------------------------------------------------
+    def delete_post(self, post_id: str, page_token: str) -> bool:
+        """Apaga um post de Página (`DELETE /{post_id}`, token da Página no header). `{"success": true}` ou erro.
+
+        Chamada com efeito: sem resposta (ou resposta sem `success`) = resultado desconhecido.
+        """
+        data = self._request("DELETE", post_id, token=page_token, effect=True, label="delete")
+        if data.get("success") is not True:
+            logger.warning("graph_error endpoint=%s code=%s subcode=%s", "delete", "bad_response", None)
+            raise MetaApiError("Resposta da Meta sem confirmação.", code="bad_response", endpoint="delete", outcome_unknown=True)
+        return True
+
+    # --- Instagram (spec 0009): token da Página no header; a Meta busca a imagem em `image_url` --------
+    def create_instagram_container(self, ig_id: str, token: str, image_url: str, caption: str) -> str:
+        """Container de imagem (`POST /{ig_id}/media`). A URL assinada e a legenda vão só no corpo; nada vai ao log."""
+        data = self._request(
+            "POST", f"{ig_id}/media", data={"image_url": image_url, "caption": caption}, token=token
+        )
+        return self._require_id(data, "media")
+
+    def instagram_container_status(self, container_id: str, token: str) -> dict:
+        """`status_code` do container: IN_PROGRESS | FINISHED | ERROR | EXPIRED | PUBLISHED."""
+        data = self._request("GET", container_id, params={"fields": "status_code"}, token=token)
+        return {"status": str(data.get("status_code", "") or "")}
+
+    def publish_instagram_container(self, ig_id: str, token: str, container_id: str) -> str:
+        """`POST /{ig_id}/media_publish`: chamada COM EFEITO (sem resposta = resultado desconhecido)."""
+        data = self._request(
+            "POST",
+            f"{ig_id}/media_publish",
+            data={"creation_id": container_id},
+            token=token,
+            timeout=self.upload_timeout,
+            effect=True,
+        )
+        return self._require_id(data, "media_publish", effect=True)
+
+    def get_instagram_permalink(self, media_id: str, token: str) -> str:
+        data = self._request("GET", media_id, params={"fields": "permalink"}, token=token)
+        return str(data.get("permalink", "") or "")
+
+    @staticmethod
+    def _require_id(data: dict, endpoint: str, *, effect: bool = False) -> str:
+        value = data.get("id")
+        if not value:
+            logger.warning("graph_error endpoint=%s code=%s subcode=%s", endpoint, "no_id", None)
+            raise MetaApiError(
+                "Resposta da Meta sem identificador.", code="bad_response", endpoint=endpoint, outcome_unknown=effect
+            )
+        return str(value)

@@ -1,6 +1,7 @@
 """Views de publicação (texto + imagem em várias Páginas). Ver specs/0003-publicar-no-facebook."""
 import logging
 
+from django.conf import settings
 from django.contrib import messages
 from django.db import DatabaseError
 from django.http import FileResponse, Http404, JsonResponse
@@ -10,8 +11,10 @@ from django.views.generic import TemplateView
 
 from .conf import evolution_configured, meta_configured, publish_in_background, threads_configured
 from .forms import PublicationForm
+from . import views_ai
+from .services import gemini
 from .models import Publication, SocialAccount, WorkerHeartbeat
-from .services import publishing, threads_tokens
+from .services import deletion, publishing, threads_tokens
 
 logger = logging.getLogger("apps.social.meta")
 
@@ -28,6 +31,8 @@ MSG_RESOLVED_PUBLISHED = "Marcado como já publicado."
 MSG_RESOLVED_RESEND = "Reenvio enfileirado: o envio acontece em segundo plano."
 MSG_RESEND_NEEDS_ACCOUNT = "Este alvo não tem conta conectada: só dá para marcar como já publicado."
 MSG_UNKNOWN_ACTION = "Ação desconhecida: nada foi alterado."
+MSG_REMOVED = "Publicação removida do Hub."
+MSG_TARGET_REMOVED = "Destino removido do Hub."
 CONFIRM = "Será publicado de verdade nas Páginas selecionadas. Continuar?"
 
 
@@ -81,6 +86,7 @@ class PostNewView(View):
         SocialAccount.Platform.FACEBOOK_PAGE: "Integração com a Meta não configurada",
         SocialAccount.Platform.THREADS: MSG_THREADS_NOT_CONFIGURED,
         SocialAccount.Platform.WHATSAPP_STATUS: MSG_WHATSAPP_NOT_CONFIGURED,
+        SocialAccount.Platform.INSTAGRAM: "Integração com a Meta não configurada",
     }
 
     def _configured(self):
@@ -88,6 +94,7 @@ class PostNewView(View):
             SocialAccount.Platform.FACEBOOK_PAGE: meta_configured(),
             SocialAccount.Platform.THREADS: threads_configured(),
             SocialAccount.Platform.WHATSAPP_STATUS: evolution_configured(),
+            SocialAccount.Platform.INSTAGRAM: meta_configured(),
         }
 
     def _destinations(self, request):
@@ -101,6 +108,7 @@ class PostNewView(View):
                     SocialAccount.Platform.FACEBOOK_PAGE,
                     SocialAccount.Platform.THREADS,
                     SocialAccount.Platform.WHATSAPP_STATUS,
+                    SocialAccount.Platform.INSTAGRAM,
                 ],
             )
         )
@@ -126,6 +134,7 @@ class PostNewView(View):
         facebook = [a for a in accounts if a.platform == SocialAccount.Platform.FACEBOOK_PAGE]
         threads = [a for a in accounts if a.platform == SocialAccount.Platform.THREADS]
         whatsapp = [a for a in accounts if a.platform == SocialAccount.Platform.WHATSAPP_STATUS]
+        instagram = [a for a in accounts if a.platform == SocialAccount.Platform.INSTAGRAM]
         context = {
             "page_title": "Nova publicação",
             "form": form,
@@ -136,10 +145,24 @@ class PostNewView(View):
                 ("Páginas do Facebook", "facebook", facebook),
                 ("Perfis do Threads", "at-sign", threads),
                 ("Status do WhatsApp", "message-circle", whatsapp),
+                ("Contas do Instagram", "instagram", instagram),
             ],
+            "instagram_accounts": instagram,
             "selected": set(request.POST.getlist("accounts")),
             "blocked": blocked,
             "confirm_message": CONFIRM,
+            "ai_models": gemini.allowed_models(),
+            "ai_text_providers": [
+                {"id": pid, "label": label, "model": model, "key": views_ai.key_status(request.user, pid)}
+                for pid, label, model in (
+                    ("gemini", "Google Gemini", settings.GEMINI_TEXT_MODEL),
+                    ("deepseek", "DeepSeek", settings.DEEPSEEK_TEXT_MODEL),
+                )
+                if model
+            ],
+            "ai_example_prompt": views_ai.EXAMPLE_TEXT_PROMPT,
+            "ai_key": views_ai.key_status(request.user),
+            "generated_image_id": request.POST.get("generated_image", "") if request.method == "POST" else "",
             "max_text": PublicationForm.base_fields["text"].max_length,
         }
         return render(request, self.template_name, context, status=status)
@@ -190,7 +213,11 @@ class PostDetailView(View):
         else:
             can_send = any(t.is_retryable for t in targets)
             has_failed = any(t.status == "failed" and t.is_retryable for t in targets)
+        for target in targets:  # spec 0010: o que dá (ou não) para apagar na plataforma
+            target.delete_reason = deletion.eligibility(target) if target.status == publishing.S.PUBLISHED else ""
+            target.can_delete_remote = target.status == publishing.S.PUBLISHED and not target.delete_reason
         context = {
+            "can_delete_any": any(t.can_delete_remote for t in targets),
             "page_title": f"Publicação #{publication.pk}",
             "publication": publication,
             "targets": targets,
@@ -254,6 +281,69 @@ class TargetResolveView(View):
                 report_batch(request, publishing.send_pending(publication))
         else:
             messages.error(request, MSG_NOT_UNCERTAIN)
+        return redirect("social:post_detail", pk=publication.pk)
+
+
+def _report_delete(request, result):
+    level = {"deleted": messages.success, "already_gone": messages.info, "unknown": messages.warning}.get(result.outcome, messages.error)
+    level(request, result.message)
+
+
+class PostRemoveView(View):
+    """"Remover do Hub": apaga a publicação, os alvos e a imagem (não chama plataforma). Só POST, só o dono (spec 0010)."""
+
+    http_method_names = ["post", "options"]
+
+    def post(self, request, pk):
+        publication = get_publication_or_404(request, pk)
+        if deletion.remove_publication(publication):
+            messages.success(request, MSG_REMOVED)
+            return redirect("social:posts")
+        messages.error(request, deletion.MSG_REMOVE_SENDING)
+        return redirect("social:post_detail", pk=publication.pk)
+
+
+class TargetRemoveView(View):
+    """"Remover do Hub" de um destino; o último remove a publicação. Só POST, só o dono."""
+
+    http_method_names = ["post", "options"]
+
+    def post(self, request, pk, target_pk):
+        publication = get_publication_or_404(request, pk)
+        target = get_object_or_404(publication.targets.select_related("publication"), pk=target_pk)
+        outcome = deletion.remove_target(target)
+        if outcome == "publication":
+            messages.success(request, MSG_REMOVED)
+            return redirect("social:posts")
+        if outcome == "target":
+            messages.success(request, MSG_TARGET_REMOVED)
+        else:
+            messages.error(request, deletion.MSG_REMOVE_SENDING)
+        return redirect("social:post_detail", pk=publication.pk)
+
+
+class TargetDeleteRemoteView(View):
+    """"Apagar na plataforma" um destino (Facebook/Threads). Só POST, só o dono. Não remove o registro."""
+
+    http_method_names = ["post", "options"]
+
+    def post(self, request, pk, target_pk):
+        publication = get_publication_or_404(request, pk)
+        target = get_object_or_404(publication.targets.select_related("account"), pk=target_pk)
+        _report_delete(request, deletion.delete_on_platform(target))
+        return redirect("social:post_detail", pk=publication.pk)
+
+
+class PostDeleteRemoteView(View):
+    """"Apagar na plataforma (todos possíveis)": tenta cada destino apagável e resume o resultado."""
+
+    http_method_names = ["post", "options"]
+
+    def post(self, request, pk):
+        publication = get_publication_or_404(request, pk)
+        bulk = deletion.delete_publication_on_platform(publication)
+        summary = f"{bulk.deleted} apagado(s), {bulk.failed} com falha e {bulk.skipped} sem exclusão pelo Hub."
+        (messages.success if bulk.deleted and not bulk.failed else messages.warning)(request, summary)
         return redirect("social:post_detail", pk=publication.pk)
 
 

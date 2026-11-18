@@ -1,15 +1,31 @@
+import re
+
 from django import forms
 from django.conf import settings
+from django.core.files.uploadedfile import SimpleUploadedFile
 
 from .conf import public_url_configured
 from .images import ImageValidationError, sanitize_image
-from .models import SocialAccount
+from .models import GeneratedImage, SocialAccount
 from .validators import clean_instance_key, is_valid_instance_name
 from .textrules import THREADS_MAX_LINKS, THREADS_MAX_WEIGHT, count_unique_links, threads_weight
 
 FB = SocialAccount.Platform.FACEBOOK_PAGE
 THREADS = SocialAccount.Platform.THREADS
 WHATSAPP = SocialAccount.Platform.WHATSAPP_STATUS
+INSTAGRAM = SocialAccount.Platform.INSTAGRAM
+
+# Instagram (spec 0009): o que ele recusa é validado antes de criar a publicação (nunca corta nem trunca).
+IG_MIN_RATIO, IG_MAX_RATIO, IG_MIN_WIDTH = 0.8, 1.91, 320
+IG_MAX_CAPTION, IG_MAX_HASHTAGS = 2200, 30
+HASHTAG = re.compile(r"(?<![\w#])#\w+", re.UNICODE)
+MSG_IG_IMAGE_REQUIRED = "O Instagram só publica com imagem. Escolha uma imagem (JPEG ou PNG)."
+MSG_IG_RATIO = "Para o Instagram, a imagem deve ter proporção entre 4:5 (retrato) e 1,91:1 (paisagem). Escolha outra imagem."
+MSG_IG_WIDTH = f"Para o Instagram, a imagem deve ter pelo menos {IG_MIN_WIDTH} pixels de largura."
+MSG_IG_PUBLIC_URL = (
+    "Para enviar imagem ao Instagram, o Hub precisa de um endereço público HTTPS. "
+    "Configure PUBLIC_BASE_URL (ou use um THREADS_REDIRECT_URI HTTPS) e reinicie."
+)
 
 MSG_IMAGE_REQUIRED = "Escolha uma imagem (JPEG ou PNG)."
 MAX_ASPECT_RATIO = 10
@@ -25,7 +41,8 @@ class PublicationForm(forms.Form):
 
     - Imagem: obrigatória apenas se houver Página do Facebook marcada; com Threads marcado ela também vai ao
       Threads (spec 0005): proporção ≤ 10:1 e endereço público HTTPS configurado.
-    - Texto: até 5000; se houver Threads marcado, peso ≤ 500 e no máximo 5 links únicos.
+    - Texto: até 5000; se houver Threads marcado, peso ≤ 500 e no máximo 5 links únicos; com Instagram, ≤ 2.200 caracteres e ≤ 30 hashtags.
+    - Instagram (spec 0009): imagem obrigatória, proporção 0,8–1,91, largura ≥ 320 e endereço público HTTPS.
     - WhatsApp (spec 0006): imagem opcional (vai em base64, sem endereço público); sem limite de texto além do geral.
     """
 
@@ -45,6 +62,8 @@ class PublicationForm(forms.Form):
         widget=forms.ClearableFileInput(attrs={"accept": "image/jpeg,image/png", "class": "input"}),
         error_messages={"invalid": "Envie um arquivo de imagem válido."},
     )
+    # Imagem gerada por IA (spec 0008): só o id; o arquivo vem do servidor e é sanitizado de novo.
+    generated_image = forms.IntegerField(required=False, widget=forms.HiddenInput())
     accounts = forms.ModelMultipleChoiceField(
         label="Destinos",
         queryset=SocialAccount.objects.none(),
@@ -55,8 +74,9 @@ class PublicationForm(forms.Form):
         },
     )
 
-    def __init__(self, *args, user, platforms=(FB, THREADS, WHATSAPP), **kwargs):
+    def __init__(self, *args, user, platforms=(FB, THREADS, WHATSAPP, INSTAGRAM), **kwargs):
         super().__init__(*args, **kwargs)
+        self.user = user
         self.sanitized = None  # imagem sanitizada (None quando não há imagem)
         # Só destinos ATIVOS do próprio usuário, de plataformas configuradas (outro usuário / reauth => escolha inválida).
         self.fields["accounts"].queryset = SocialAccount.objects.filter(
@@ -72,6 +92,17 @@ class PublicationForm(forms.Form):
         platforms = {account.platform for account in accounts}
         text = cleaned.get("text")
         upload = cleaned.get("image")
+        if not upload and cleaned.get("generated_image"):  # o arquivo escolhido vence a imagem gerada
+            generated = GeneratedImage.objects.filter(pk=cleaned["generated_image"], owner=self.user).first()
+            if generated is None or generated.is_expired():
+                self.add_error("image", "A imagem gerada não está mais disponível. Gere outra.")
+                return cleaned
+            try:
+                with generated.file.open("rb") as handle:
+                    upload = SimpleUploadedFile("gerada", handle.read())
+            except FileNotFoundError:
+                self.add_error("image", "A imagem gerada não está mais disponível. Gere outra.")
+                return cleaned
 
         if THREADS in platforms and text:
             weight = threads_weight(text)
@@ -83,8 +114,17 @@ class PublicationForm(forms.Form):
             if count_unique_links(text) > THREADS_MAX_LINKS:
                 self.add_error("text", f"O Threads aceita no máximo {THREADS_MAX_LINKS} links diferentes.")
 
+        if INSTAGRAM in platforms and text:
+            hashtags = len(HASHTAG.findall(text))
+            if len(text) > IG_MAX_CAPTION:
+                self.add_error("text", f"No Instagram a legenda pode ter até {IG_MAX_CAPTION} caracteres. A sua tem {len(text)}.")
+            if hashtags > IG_MAX_HASHTAGS:
+                self.add_error("text", f"O Instagram aceita no máximo {IG_MAX_HASHTAGS} hashtags. A sua tem {hashtags}.")
+
         if FB in platforms and not upload:
             self.add_error("image", MSG_IMAGE_REQUIRED)
+        elif INSTAGRAM in platforms and not upload:
+            self.add_error("image", MSG_IG_IMAGE_REQUIRED)
         elif upload:
             try:
                 self.sanitized = sanitize_image(upload)
@@ -96,6 +136,15 @@ class PublicationForm(forms.Form):
                         self.add_error("image", MSG_IMAGE_RATIO)
                     elif not public_url_configured():
                         self.add_error("image", MSG_PUBLIC_URL)
+                if INSTAGRAM in platforms:
+                    image = self.sanitized
+                    ratio = image.width / image.height if image.height else 0
+                    if not IG_MIN_RATIO <= ratio <= IG_MAX_RATIO:
+                        self.add_error("image", MSG_IG_RATIO)
+                    elif image.width < IG_MIN_WIDTH:
+                        self.add_error("image", MSG_IG_WIDTH)
+                    elif not public_url_configured():
+                        self.add_error("image", MSG_IG_PUBLIC_URL)
         return cleaned
 
 

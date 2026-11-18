@@ -80,3 +80,22 @@ def sanitize_image(upload) -> SanitizedImage:
         image.save(out, format="PNG", optimize=True)  # sem pnginfo: chunks de texto/EXIF descartados
     name = f"{uuid.uuid4().hex}{extension}"
     return SanitizedImage(content=ContentFile(out.getvalue(), name=name), content_type=content_type, extension=extension, width=width, height=height)
+
+
+def to_jpeg_bytes(handle) -> bytes:
+    """Converte uma imagem JÁ sanitizada (JPEG ou PNG) em JPEG para o Instagram (spec 0009).
+
+    Transparência é achatada sobre fundo branco; só a entrega muda, a imagem armazenada não.
+    """
+    image = Image.open(handle)
+    image.load()
+    if image.mode in ("RGBA", "LA") or (image.mode == "P" and "transparency" in image.info):
+        rgba = image.convert("RGBA")
+        background = Image.new("RGB", rgba.size, (255, 255, 255))
+        background.paste(rgba, mask=rgba.getchannel("A"))
+        image = background
+    elif image.mode != "RGB":
+        image = image.convert("RGB")
+    out = io.BytesIO()
+    image.save(out, format="JPEG", quality=JPEG_QUALITY, optimize=True)
+    return out.getvalue()

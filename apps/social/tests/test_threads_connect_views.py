@@ -64,7 +64,7 @@ class ThreadsConnectTests(TestCase):
         self.assertEqual(f"{url.scheme}://{url.netloc}{url.path}", "https://threads.com/oauth/authorize")
         q = parse_qs(url.query)
         self.assertEqual(q["client_id"], ["1602810271151684"])
-        self.assertEqual(q["scope"], ["threads_basic,threads_content_publish"])
+        self.assertEqual(q["scope"], ["threads_basic,threads_content_publish,threads_delete"])
         self.assertEqual(q["response_type"], ["code"])
         self.assertEqual(q["redirect_uri"], [THREADS_SETTINGS["THREADS_REDIRECT_URI"]])
         self.assertEqual(q["state"][0], self.client.session["threads_oauth_state"]["value"])

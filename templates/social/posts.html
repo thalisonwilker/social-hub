@@ -8,7 +8,8 @@
 <section class="card" aria-label="Publicações">
   {% for publication in publications %}
     {% with counts=publication.status_counts %}
-    <a href="{% url 'social:post_detail' publication.pk %}" class="flex items-center gap-4 px-5 py-4 hover:bg-surface-2 {% if not forloop.last %}border-b border-line{% endif %}">
+    <div class="flex items-center gap-2 pr-5 hover:bg-surface-2 {% if not forloop.last %}border-b border-line{% endif %}">
+    <a href="{% url 'social:post_detail' publication.pk %}" class="flex min-w-0 flex-1 items-center gap-4 px-5 py-4">
       {% if publication.has_image %}
         <img src="{% url 'social:post_image' publication.pk %}" alt="" class="h-14 w-14 shrink-0 rounded border border-line object-cover" loading="lazy">
       {% else %}
@@ -22,6 +23,11 @@
       </div>
       <span class="badge {% if publication.status == 'published' %}badge-ok{% elif publication.status == 'failed' %}badge-danger{% else %}badge-warn{% endif %}">{{ publication.status_label }}</span>
     </a>
+    <form method="post" action="{% url 'social:post_remove' publication.pk %}" data-confirm="Remover esta publicação do Hub? O histórico e a imagem serão apagados e isso não pode ser desfeito. Os posts já publicados continuam nas redes sociais." data-disable-on-submit>
+      {% csrf_token %}
+      <button type="submit" class="btn text-danger" title="Remover do Hub" aria-label="Remover esta publicação do Hub"><i data-lucide="trash-2" class="h-4 w-4"></i></button>
+    </form>
+    </div>
     {% endwith %}
   {% empty %}
     <div class="px-6 py-12 text-center">

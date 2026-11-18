@@ -16,7 +16,7 @@ logger = logging.getLogger("apps.social.meta")
 
 AUTH_URL = "https://threads.com/oauth/authorize"
 THREADS_BASE = "https://graph.threads.com"
-SCOPES = "threads_basic,threads_content_publish"
+SCOPES = "threads_basic,threads_content_publish,threads_delete"  # threads_delete: apagar posts (spec 0010)
 
 
 class ThreadsClient(BaseGraphClient):
@@ -154,6 +154,17 @@ class ThreadsClient(BaseGraphClient):
     def get_permalink(self, media_id: str, token: str) -> str:
         data = self._request("GET", media_id, params={"fields": "permalink", "access_token": token})
         return data.get("permalink", "") or ""
+
+    def delete_media(self, media_id: str, token: str) -> bool:
+        """Apaga um post do Threads (`DELETE /{media_id}`; exige `threads_delete`; 100/dia). `{"success": true}` ou erro.
+
+        O token vai em `params` como na documentação (nunca é registrado em log). Chamada com efeito.
+        """
+        data = self._request("DELETE", media_id, params={"access_token": token}, effect=True, label="delete")
+        if data.get("success") is not True:
+            logger.warning("graph_error endpoint=%s code=%s subcode=%s", "delete", "bad_response", None)
+            raise MetaApiError("Resposta do Threads sem confirmação.", code="bad_response", endpoint="delete", outcome_unknown=True)
+        return True
 
     @staticmethod
     def _require_id(data: dict, endpoint: str, *, effect: bool = False) -> str:

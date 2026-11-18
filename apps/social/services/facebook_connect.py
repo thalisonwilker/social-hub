@@ -76,6 +76,7 @@ def fetch_pages(session, code: str, client: GraphClient | None = None) -> FetchR
                     "category": p["category"],
                     "picture_url": p["picture_url"],
                     "tasks": p["tasks"],
+                    "instagram": p.get("instagram"),  # resumo sem token (spec 0009)
                     "token_enc": encrypt_token(p["access_token"]),
                 }
                 for p in usable
@@ -129,6 +130,36 @@ def save_selected(user, session, selected_ids) -> list[SocialAccount]:
                 },
             )
             accounts.append(account)
+            if "instagram" in page:  # sessões sem o campo (anteriores à 0009) não mexem nas contas Instagram
+                _sync_instagram(user, account, page)
     session.pop(PENDING_KEY, None)
     logger.info("account_connected count=%d", len(accounts))
     return accounts
+
+
+def _sync_instagram(user, page_account: SocialAccount, page: dict) -> None:
+    """Cria/atualiza a Conta Instagram da Página (mesmo token cifrado) ou a remove se o vínculo acabou (spec 0009)."""
+    instagram = page.get("instagram")
+    stale = SocialAccount.objects.filter(
+        owner=user, platform=SocialAccount.Platform.INSTAGRAM, parent=page_account
+    )
+    if not instagram:
+        stale.delete()
+        return
+    stale.exclude(external_id=instagram["id"]).delete()  # a Página passou a ter outro Instagram
+    SocialAccount.objects.update_or_create(
+        owner=user,
+        platform=SocialAccount.Platform.INSTAGRAM,
+        external_id=instagram["id"],
+        defaults={
+            "name": instagram["username"] or instagram["name"] or instagram["id"],
+            "username": instagram["username"],
+            "category": "",
+            "picture_url": instagram["picture_url"] if len(instagram["picture_url"]) <= 500 else "",
+            "granted_tasks": page["tasks"],
+            "access_token_enc": page["token_enc"],  # o mesmo token (já cifrado) da Página
+            "parent": page_account,
+            "status": SocialAccount.Status.ACTIVE,
+            "last_error": "",
+        },
+    )

@@ -1,4 +1,5 @@
 {% extends "layout.html" %}
+{% load static %}
 {% block content %}
 {% if blocked %}
 <section class="card mx-auto max-w-xl p-8 text-center">
@@ -16,17 +17,95 @@
       <div class="border-l-2 border-l-danger bg-surface-2 px-3 py-2 text-danger" role="alert">{% for e in form.non_field_errors %}{{ e }}{% endfor %}</div>
     {% endif %}
 
-    <div>
-      <label class="label" for="{{ form.text.id_for_label }}">Texto</label>
-      {{ form.text }}
-      <p class="mt-1 text-xs text-muted">Até {{ max_text }} caracteres. Se marcar o Threads, o limite é de 500 e no máximo 5 links diferentes.</p>
-      {% for error in form.text.errors %}<p class="mt-1 text-xs text-danger">{{ error }}</p>{% endfor %}
+    <div class="grid gap-4 md:grid-cols-2">
+      <div>
+        <label class="label" for="{{ form.text.id_for_label }}">Texto</label>
+        {{ form.text }}
+        <p class="mt-1 text-xs text-muted">Até {{ max_text }} caracteres. Se marcar o Threads, o limite é de 500 e no máximo 5 links diferentes. No Instagram, até 2.200 caracteres e 30 hashtags.</p>
+        {% for error in form.text.errors %}<p class="mt-1 text-xs text-danger">{{ error }}</p>{% endfor %}
+      </div>
+      {% if ai_text_providers %}
+      <section id="ai-text" class="rounded border border-line p-3" aria-labelledby="ai-text-title"
+               data-text-url="{% url 'social:ai_text' %}" data-example="{{ ai_example_prompt }}"
+               data-key-url="{% url 'social:ai_key_save' %}" data-key-remove-url="{% url 'social:ai_key_remove' %}"
+               data-key-test-url="{% url 'social:ai_key_test' %}">
+        <style>#ai-text [hidden]{display:none !important}</style>
+        <h3 id="ai-text-title" class="mb-2 flex items-center gap-2 text-sm font-semibold"><i data-lucide="sparkles" class="h-4 w-4 text-accent"></i>Gerar texto com IA</h3>
+        <label class="label" for="ai-text-provider">Provedor</label>
+        <select id="ai-text-provider" class="input mb-2">
+          {% for p in ai_text_providers %}<option value="{{ p.id }}" data-model="{{ p.model }}" data-own="{{ p.key.own|yesno:'1,' }}" data-server="{{ p.key.server|yesno:'1,' }}" data-last4="{{ p.key.last4 }}">{{ p.label }}</option>{% endfor %}
+        </select>
+        <label class="label" for="ai-text-prompt">Prompt</label>
+        <textarea id="ai-text-prompt" rows="4" maxlength="2000" class="input" placeholder="{{ ai_example_prompt }}"></textarea>
+        <div class="mt-2 flex flex-wrap items-center gap-2">
+          <button type="button" id="ai-text-generate" class="btn btn-primary"><i data-lucide="wand-sparkles" class="h-4 w-4"></i>Gerar texto</button>
+          <button type="button" id="ai-text-example" class="btn btn-ghost text-xs">Usar prompt de exemplo</button>
+        </div>
+        <p class="mt-1 text-xs text-muted">Modelo: <span id="ai-text-model"></span>. O texto gerado vai para a caixa ao lado e você pode editá-lo.</p>
+        <details id="ai-text-keybox" class="mt-2 rounded border border-line px-3 py-2">
+          <summary class="cursor-pointer text-xs font-medium">Chave de API de <span id="ai-text-keylabel"></span> <span id="ai-text-key-state" class="font-normal text-muted"></span></summary>
+          <div class="mt-2 flex gap-2">
+            <input id="ai-text-key" type="password" autocomplete="off" spellcheck="false" class="input" placeholder="Cole sua chave de API">
+            <button type="button" id="ai-text-key-test" class="btn btn-ghost">Testar</button>
+            <button type="button" id="ai-text-key-save" class="btn btn-ghost">Salvar</button>
+            <button type="button" id="ai-text-key-remove" class="btn btn-ghost" hidden>Remover</button>
+          </div>
+          <p class="mt-1 text-xs text-muted">Fica cifrada no servidor e não é exibida de novo. O uso é cobrado na sua conta do provedor.</p>
+        </details>
+        <p id="ai-text-message" class="mt-1 text-xs" role="status" aria-live="polite"></p>
+      </section>
+      {% endif %}
     </div>
+
+    {% if ai_models %}
+    <style>#ai-image [hidden]{display:none !important}</style>
+    <section id="ai-image" class="rounded border border-line p-4" aria-labelledby="ai-title"
+             data-generate-url="{% url 'social:ai_generate' %}" data-key-url="{% url 'social:ai_key_save' %}"
+             data-key-remove-url="{% url 'social:ai_key_remove' %}" data-key-test-url="{% url 'social:ai_key_test' %}" data-initial-id="{{ generated_image_id }}"
+             data-initial-url="{% if generated_image_id %}{% url 'social:ai_image' generated_image_id %}{% endif %}">
+      <h3 id="ai-title" class="mb-3 flex items-center gap-2 text-sm font-semibold"><i data-lucide="sparkles" class="h-4 w-4 text-accent"></i>Criar imagem com IA</h3>
+      <div class="grid gap-4 md:grid-cols-2">
+        <div class="space-y-3">
+          <div>
+            <label class="label" for="ai-prompt">Prompt</label>
+            <textarea id="ai-prompt" rows="5" maxlength="2000" class="input" placeholder="Descreva a imagem que você quer criar"></textarea>
+          </div>
+          <div>
+            <label class="label" for="ai-model">Modelo (Google Gemini)</label>
+            <select id="ai-model" class="input">{% for m in ai_models %}<option value="{{ m }}">{{ m }}</option>{% endfor %}</select>
+          </div>
+          <details class="rounded border border-line px-3 py-2" {% if not ai_key.has_key %}open{% endif %}>
+            <summary class="cursor-pointer text-xs font-medium">Chave de API do Gemini
+              <span id="ai-key-state" class="font-normal text-muted">{% if ai_key.own %}· cadastrada (final ••••{{ ai_key.last4 }}){% elif ai_key.server %}· usando a chave do servidor{% else %}· não cadastrada{% endif %}</span></summary>
+            <div class="mt-2 flex gap-2">
+              <input id="ai-key" type="password" autocomplete="off" spellcheck="false" class="input" placeholder="Cole sua chave de API">
+              <button type="button" id="ai-key-test" class="btn btn-ghost" title="Verifica se a chave é aceita pelo Google (não gera imagem)">Testar</button>
+              <button type="button" id="ai-key-save" class="btn btn-ghost">Salvar</button>
+              <button type="button" id="ai-key-remove" class="btn btn-ghost" {% if not ai_key.own %}hidden{% endif %}>Remover</button>
+            </div>
+            <p class="mt-1 text-xs text-muted">Fica cifrada no servidor e não é exibida de novo. O uso é cobrado na sua conta do Google.</p>
+          </details>
+          <button type="button" id="ai-generate" class="btn btn-primary"><i data-lucide="wand-sparkles" class="h-4 w-4"></i>Gerar imagem</button>
+          <p id="ai-message" class="text-xs" role="status" aria-live="polite"></p>
+        </div>
+        <div>
+          <p class="label">Pré-visualização</p>
+          <div class="flex min-h-48 items-center justify-center rounded border border-line bg-surface-2 p-2">
+            <p id="ai-empty" class="text-xs text-muted">A imagem gerada aparece aqui e será usada na publicação.</p>
+            <img id="ai-preview" alt="Imagem gerada por IA" class="max-h-80 rounded" hidden>
+          </div>
+          <button type="button" id="ai-discard" class="btn btn-ghost mt-2 text-xs" hidden>Descartar imagem gerada</button>
+          <p id="ai-override" class="mt-1 text-xs text-muted" hidden>Você escolheu um arquivo: ele será usado no lugar da imagem gerada.</p>
+        </div>
+      </div>
+    </section>
+    {% endif %}
 
     <div>
       <label class="label" for="{{ form.image.id_for_label }}">Imagem</label>
       {{ form.image }}
-      <p class="mt-1 text-xs text-muted">JPEG ou PNG, até 8 MB; os metadados (como localização) são removidos. <strong class="font-medium text-fg">Obrigatória se marcar uma Página do Facebook.</strong> No Threads, vai junto com o texto (proporção até 10:1). No WhatsApp, vai como Status, com o texto de legenda.</p>
+      {{ form.generated_image }}
+      <p class="mt-1 text-xs text-muted">JPEG ou PNG, até 8 MB; os metadados (como localização) são removidos. <strong class="font-medium text-fg">Obrigatória se marcar uma Página do Facebook.</strong> No Threads, vai junto com o texto (proporção até 10:1). No WhatsApp, vai como Status, com o texto de legenda. <strong class="font-medium text-fg">O Instagram exige imagem</strong> (proporção de 4:5 a 1,91:1, largura mínima de 320 px).</p>
       {% for error in form.image.errors %}<p class="mt-1 text-xs text-danger">{{ error }}</p>{% endfor %}
     </div>
 
@@ -48,7 +127,7 @@
                    {% if account.pk|stringformat:"s" in selected %}checked{% endif %}>
             <span class="min-w-0 flex-1">
               <span class="block truncate font-medium">{{ account.name }}{% if account.username %} <span class="font-normal text-muted">@{{ account.username }}</span>{% endif %}</span>
-              <span class="block truncate text-xs text-muted">{% if account.platform == 'threads' %}Perfil do Threads{% elif account.platform == 'whatsapp_status' %}Status do WhatsApp · instância {{ account.external_id }}{% else %}{{ account.category|default:"Página do Facebook" }}{% endif %}</span>
+              <span class="block truncate text-xs text-muted">{% if account.platform == 'threads' %}Perfil do Threads{% elif account.platform == 'whatsapp_status' %}Status do WhatsApp · instância {{ account.external_id }}{% elif account.platform == 'instagram' %}Instagram · imagem obrigatória{% else %}{{ account.category|default:"Página do Facebook" }}{% endif %}</span>
             </span>
             {% if account.unavailable_reason %}
               <span class="badge badge-warn">{{ account.unavailable_reason }}</span>
@@ -67,6 +146,9 @@
       {% for account in threads_accounts %}{% if account.needs_reauth %}
         <p class="mt-2 text-xs text-muted">O perfil “{{ account.name }}” precisa ser reconectado em <a class="text-accent hover:underline" href="{% url 'social:accounts' %}">Contas conectadas</a>.</p>
       {% endif %}{% endfor %}
+      {% for account in instagram_accounts %}{% if account.needs_reauth %}
+        <p class="mt-2 text-xs text-muted">O Instagram “{{ account.name }}” precisa ser reconectado em <a class="text-accent hover:underline" href="{% url 'social:accounts' %}">Contas conectadas</a>.</p>
+      {% endif %}{% endfor %}
       {% for account in whatsapp_accounts %}{% if account.needs_reauth %}
         <p class="mt-2 text-xs text-muted">O número “{{ account.name }}” está desconectado: reconecte o número na Evolution e atualize a chave em <a class="text-accent hover:underline" href="{% url 'social:accounts' %}">Contas conectadas</a>.</p>
       {% endif %}{% endfor %}
@@ -79,4 +161,5 @@
   </div>
 </form>
 {% endif %}
+<script src="{% static 'js/ai-image.js' %}" defer></script>
 {% endblock %}

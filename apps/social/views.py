@@ -142,7 +142,7 @@ class AccountsView(TemplateView):
             configured=meta_configured(),
             threads_configured=threads_configured(),
             evolution_configured=evolution_configured(),
-            accounts=SocialAccount.objects.filter(owner=self.request.user),
+            accounts=SocialAccount.objects.filter(owner=self.request.user).select_related("parent"),
         )
         return context
 
@@ -167,6 +167,8 @@ class AccountCheckView(AccountActionView):
             return self._check_threads(request, account)
         if account.platform == SocialAccount.Platform.WHATSAPP_STATUS:
             return self._check_whatsapp(request, account)
+        if account.platform == SocialAccount.Platform.INSTAGRAM:
+            return self._check_instagram(request, account)
         return self._check_facebook(request, account)
 
     def _save(self, account, **fields):
@@ -192,6 +194,27 @@ class AccountCheckView(AccountActionView):
         except MetaApiError as exc:
             if exc.is_token_error:
                 self._needs_reauth(request, account, exc.code)
+            else:
+                messages.error(request, self.MSG_CANNOT_CHECK)
+            return redirect("social:accounts")
+        except TokenCryptoError:
+            messages.error(request, self.MSG_CANNOT_CHECK)
+            return redirect("social:accounts")
+        self._ok(request, account)
+        return redirect("social:accounts")
+
+    def _check_instagram(self, request, account):
+        """O Instagram usa o token da Página vinculada: verificar é consultar a Página (spec 0009)."""
+        page = account.parent
+        if not meta_configured() or page is None:
+            messages.error(request, MSG_NOT_CONFIGURED if page else self.MSG_CANNOT_CHECK)
+            return redirect("social:accounts")
+        try:
+            GraphClient.from_settings().get_page(page.external_id, account.get_token())
+        except MetaApiError as exc:
+            if exc.is_token_error:
+                self._needs_reauth(request, account, exc.code)
+                SocialAccount.objects.filter(pk=page.pk).update(status=SocialAccount.Status.NEEDS_REAUTH)
             else:
                 messages.error(request, self.MSG_CANNOT_CHECK)
             return redirect("social:accounts")

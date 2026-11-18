@@ -129,12 +129,33 @@ PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL", "")  # HTTPS; vazio = origem
 THREADS_IMAGE_URL_TTL_SECONDS = int(os.environ.get("THREADS_IMAGE_URL_TTL_SECONDS", "1800"))
 THREADS_IMAGE_WAIT_SECONDS = int(os.environ.get("THREADS_IMAGE_WAIT_SECONDS", "60"))
 
+# Instagram (spec 0009): espera do container de imagem (a Meta baixa a imagem da mesma URL pública temporária).
+INSTAGRAM_CONTAINER_WAIT_SECONDS = int(os.environ.get("INSTAGRAM_CONTAINER_WAIT_SECONDS", "60"))
+
 # --- WhatsApp (Status) via Evolution API (spec 0006) ---------------------------------------------
 # Só a ORIGEM HTTPS conta; o usuário nunca informa o host (evita SSRF). A chave é por instância, cifrada no banco.
 EVOLUTION_API_URL = os.environ.get("EVOLUTION_API_URL", "")
 EVOLUTION_TIMEOUT_SECONDS = int(os.environ.get("EVOLUTION_TIMEOUT_SECONDS", "120"))
 # Orçamento de tempo de uma requisição de envio (deve ser menor que o --timeout do Gunicorn).
 PUBLISH_REQUEST_BUDGET_SECONDS = int(os.environ.get("PUBLISH_REQUEST_BUDGET_SECONDS", "150"))
+
+# --- Gerar imagem com IA / Google Gemini (spec 0008) ---------------------------------------------
+# Host fixo no código (nunca informado pelo usuário). A chave é por usuário, cifrada no banco; `GEMINI_API_KEY` é só o fallback do servidor.
+# IDs de modelo mudam: ficam em configuração (lista separada por vírgula; o primeiro é o padrão; vazio desliga a seção).
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+GEMINI_IMAGE_MODELS = [
+    m.strip()
+    for m in os.environ.get("GEMINI_IMAGE_MODELS", "gemini-nano-banana-2.1,gemini-3-pro-image,gemini-3.1-flash-image,gemini-2.5-flash-image").split(",")
+    if m.strip()
+]
+# Modelo de TEXTO (padrão) para gerar o conteúdo da publicação; vazio desliga o painel de texto.
+GEMINI_TEXT_MODEL = os.environ.get("GEMINI_TEXT_MODEL", "gemini-2.5-flash").strip()
+# DeepSeek (opcional) como segundo provedor de TEXTO; vazio em DEEPSEEK_TEXT_MODEL desliga. A chave é por usuário (fallback: DEEPSEEK_API_KEY).
+DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY", "")
+DEEPSEEK_TEXT_MODEL = os.environ.get("DEEPSEEK_TEXT_MODEL", "deepseek-chat").strip()
+GEMINI_TIMEOUT_SECONDS = int(os.environ.get("GEMINI_TIMEOUT_SECONDS", "90"))
+GENERATED_IMAGE_TTL_SECONDS = int(os.environ.get("GENERATED_IMAGE_TTL_SECONDS", str(24 * 3600)))
+GEMINI_PROMPT_MAX_LENGTH = 2000
 
 # --- Publicação em segundo plano (spec 0007) -----------------------------------------------------
 # `worker`: Publicar só enfileira e o `run_worker` envia; `inline`: envia na requisição (dev/testes). Produção usa `worker`.

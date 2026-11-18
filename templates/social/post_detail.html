@@ -37,13 +37,25 @@
         </button>
       </form>
       {% endif %}
+      <div class="flex flex-wrap gap-2">
+        {% if can_delete_any %}
+        <form method="post" action="{% url 'social:post_delete_remote' publication.pk %}" data-confirm="Apagar na plataforma os posts publicados no Facebook e no Threads? Esta ação é irreversível e o registro continua no Hub." data-disable-on-submit>
+          {% csrf_token %}
+          <button type="submit" class="btn text-danger"><i data-lucide="eraser" class="h-4 w-4"></i>Apagar na plataforma</button>
+        </form>
+        {% endif %}
+        <form method="post" action="{% url 'social:post_remove' publication.pk %}" data-confirm="Remover esta publicação do Hub? O histórico e a imagem serão apagados e isso não pode ser desfeito. Os posts já publicados continuam nas redes sociais{% if counts.uncertain %} (há destino Incerto: o post pode estar publicado){% endif %}; use “Apagar na plataforma” antes se quiser apagá-los." data-disable-on-submit>
+          {% csrf_token %}
+          <button type="submit" class="btn text-danger"><i data-lucide="trash-2" class="h-4 w-4"></i>Remover do Hub</button>
+        </form>
+      </div>
     </div>
 
     <ul class="divide-y divide-line">
       {% for target in targets %}
       <li class="flex flex-wrap items-center gap-3 px-5 py-3">
         <div class="min-w-0 flex-1">
-          <p class="truncate font-medium"><i data-lucide="{% if target.platform == 'threads' %}at-sign{% elif target.platform == 'whatsapp_status' %}message-circle{% else %}facebook{% endif %}" class="mr-1 inline h-3.5 w-3.5 text-muted"></i>{{ target.page_name }}
+          <p class="truncate font-medium"><i data-lucide="{% if target.platform == 'threads' %}at-sign{% elif target.platform == 'whatsapp_status' %}message-circle{% elif target.platform == 'instagram' %}instagram{% else %}facebook{% endif %}" class="mr-1 inline h-3.5 w-3.5 text-muted"></i>{{ target.page_name }}
             <span class="text-xs font-normal text-muted">· {% if target.platform == 'whatsapp_status' %}Status do WhatsApp · instância {{ target.page_external_id }}{% else %}{{ target.get_platform_display }}{% endif %}</span></p>
           {% if target.status == 'failed' %}
             <p class="text-xs text-danger">{{ target.error_message }}</p>
@@ -62,16 +74,32 @@
               </form>
             </div>
           {% elif target.status == 'published' %}
-            <p class="text-xs text-muted">Publicado em {{ target.published_at|date:"d/m/Y H:i" }}{% if not target.permalink %} · link indisponível{% endif %}</p>
+            {% if target.is_deleted %}
+              <p class="text-xs text-muted">Publicado em {{ target.published_at|date:"d/m/Y H:i" }} · <strong class="font-medium text-fg">Apagado na plataforma</strong> em {{ target.deleted_at|date:"d/m/Y H:i" }}</p>
+            {% else %}
+              <p class="text-xs text-muted">Publicado em {{ target.published_at|date:"d/m/Y H:i" }}{% if not target.permalink %} · link indisponível{% endif %}{% if target.delete_reason == 'unsupported' %} · o Hub não apaga posts desta plataforma: apague pelo app{% elif target.delete_reason == 'no_account' %} · conta desconectada: apague pelo app{% elif target.delete_reason == 'needs_reauth' %} · reconecte a conta para apagar{% elif target.delete_reason == 'no_post_id' %} · apague pelo app{% endif %}</p>
+            {% endif %}
           {% elif target.status == 'sending' %}
             <p class="text-xs text-muted">Enviando…</p>
           {% else %}
             <p class="text-xs text-muted">{% if worker_mode %}Na fila{% else %}Aguardando envio{% endif %}</p>
           {% endif %}
         </div>
-        <span class="badge {% if target.status == 'published' %}badge-ok{% elif target.status == 'failed' %}badge-danger{% else %}badge-warn{% endif %}">{{ target.get_status_display }}</span>
-        {% if target.status == 'published' and target.permalink %}
+        <span class="badge {% if target.status == 'published' %}badge-ok{% elif target.status == 'failed' %}badge-danger{% else %}badge-warn{% endif %}">{% if target.is_deleted %}Apagado{% else %}{{ target.get_status_display }}{% endif %}</span>
+        {% if target.status == 'published' and target.permalink and not target.is_deleted %}
           <a href="{{ target.permalink }}" target="_blank" rel="noopener noreferrer" class="btn"><i data-lucide="external-link" class="h-4 w-4"></i>Ver post</a>
+        {% endif %}
+        {% if target.can_delete_remote %}
+          <form method="post" action="{% url 'social:target_delete_remote' publication.pk target.pk %}" data-confirm="Apagar este post em {{ target.get_platform_display }}? Esta ação é irreversível e o registro continua no Hub." data-disable-on-submit>
+            {% csrf_token %}
+            <button type="submit" class="btn text-danger"><i data-lucide="eraser" class="h-4 w-4"></i>Apagar na plataforma</button>
+          </form>
+        {% endif %}
+        {% if target.status != 'sending' %}
+          <form method="post" action="{% url 'social:target_remove' publication.pk target.pk %}" data-confirm="Remover este destino do Hub?{% if target.status == 'published' and not target.is_deleted %} O post continua na rede social.{% elif target.status == 'uncertain' %} Este destino está Incerto: o post pode estar publicado na rede.{% endif %} Isso não pode ser desfeito." data-disable-on-submit>
+            {% csrf_token %}
+            <button type="submit" class="btn text-danger" title="Remover do Hub" aria-label="Remover este destino do Hub"><i data-lucide="trash-2" class="h-4 w-4"></i></button>
+          </form>
         {% endif %}
       </li>
       {% endfor %}

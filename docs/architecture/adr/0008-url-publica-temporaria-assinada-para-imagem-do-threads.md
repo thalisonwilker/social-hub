@@ -33,3 +33,5 @@ requisição completa no access log (`--access-logfile -`).
 - **−** Uma rota anônima no Hub; o Hub precisa estar **alcançável pela Meta** (túnel em dev; domínio com TLS em produção).
 - **−** Dependência de comportamentos não documentados do buscador da Meta; validar no UAT.
 - **−** URL assinada vazada dá acesso à imagem até expirar (≤ 30 min) ou até a publicação concluir.
+
+> **Nota (2026-11-18, [ADR-0013](0013-instagram-via-pagina-conta-vinculada-token-da-pagina-e-imagem-jpeg-publica.md)):** o Instagram usa o mesmo token assinado em uma rota irmã, `/publico/instagram.jpg`, sempre em JPEG e com escopo próprio (só com alvo **Instagram** em andamento). A rota do Threads continua exigindo alvo Threads.

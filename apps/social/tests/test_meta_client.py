@@ -70,13 +70,13 @@ class GraphClientTests(SimpleTestCase):
     def test_AC_3_list_pages_normalizes_and_sends_bearer_header(self):
         payload = {"data": [
             {"id": "1", "name": "Loja", "category": "Varejo", "picture": {"data": {"url": "http://img/1"}},
-             "access_token": PAGE_TOKEN, "tasks": ["CREATE_CONTENT"]},
+             "access_token": PAGE_TOKEN, "tasks": ["CREATE_CONTENT"], "instagram": None},
             {"id": "2", "name": "Sem token"},
         ]}
         client, session = make_client(FakeResponse(payload))
         pages = client.list_pages(USER_TOKEN)
         self.assertEqual(pages[0], {"id": "1", "name": "Loja", "category": "Varejo", "picture_url": "http://img/1",
-                                    "access_token": PAGE_TOKEN, "tasks": ["CREATE_CONTENT"]})
+                                    "access_token": PAGE_TOKEN, "tasks": ["CREATE_CONTENT"], "instagram": None})
         self.assertIsNone(pages[1]["access_token"])
         (method, url), kwargs = sent(session)
         self.assertEqual(kwargs["headers"], {"Authorization": f"Bearer {USER_TOKEN}"})

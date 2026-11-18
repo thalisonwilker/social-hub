@@ -1,7 +1,7 @@
-"""Rota pública da imagem de uma publicação, para a Meta baixar (Threads). Ver ADR-0008.
+"""Rotas públicas da imagem de uma publicação, para a Meta baixar (Threads e Instagram). Ver ADR-0008 e ADR-0013.
 
 É a ÚNICA rota anônima de mídia. Escopo mínimo: só serve com token assinado e válido, publicação com imagem
-e ao menos um alvo do Threads em andamento. Toda recusa é um 404 idêntico (não revela o motivo); o motivo
+e ao menos um alvo DA PLATAFORMA da rota em andamento (Threads ou Instagram). Toda recusa é um 404 idêntico (não revela o motivo); o motivo
 vai só ao log, sem token nem URL.
 """
 import logging
@@ -13,6 +13,7 @@ from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 
 from .models import Publication, PublicationTarget
+from .images import to_jpeg_bytes
 from .public import image_extension, read_image_token
 
 logger = logging.getLogger("apps.social.meta")
@@ -41,6 +42,8 @@ def _not_found(reason: str):
 class PublicImageView(View):
     http_method_names = ["get", "head"]
 
+    platform = "threads"
+
     def _resolve(self, request, ext):
         publication_id, reason = read_image_token(request.GET.get("t", ""))
         if publication_id is None:
@@ -48,9 +51,9 @@ class PublicImageView(View):
         publication = Publication.objects.filter(pk=publication_id).first()
         if publication is None or not publication.has_image:
             return None, _not_found("no_image")
-        if image_extension(publication.image_content_type) != f".{ext}":
+        if ext is not None and image_extension(publication.image_content_type) != f".{ext}":
             return None, _not_found("invalid")
-        in_flight = publication.targets.filter(platform="threads", status__in=IN_FLIGHT).exists()
+        in_flight = publication.targets.filter(platform=self.platform, status__in=IN_FLIGHT).exists()
         if not in_flight:
             return None, _not_found("not_in_flight")
         return publication, None
@@ -75,5 +78,42 @@ class PublicImageView(View):
             response["Content-Length"] = str(publication.image.size)
         except (FileNotFoundError, OSError):
             return _not_found("no_image")
+        logger.info("public_image_served")
+        return _harden(response)
+
+
+class PublicInstagramImageView(PublicImageView):
+    """`/publico/instagram.jpg`: sempre JPEG (PNG é convertido só na entrega); só com alvo Instagram em andamento."""
+
+    platform = "instagram"
+
+    def _jpeg(self, publication):
+        try:
+            with publication.image.open("rb") as handle:
+                if publication.image_content_type == "image/jpeg":
+                    return handle.read()
+                return to_jpeg_bytes(handle)
+        except (FileNotFoundError, OSError, ValueError):
+            return None
+
+    def get(self, request, ext=None):
+        publication, refusal = self._resolve(request, None)
+        if refusal:
+            return refusal
+        body = self._jpeg(publication)
+        if body is None:
+            return _not_found("no_image")
+        logger.info("public_image_served")
+        return _harden(HttpResponse(body, content_type="image/jpeg"))
+
+    def head(self, request, ext=None):
+        publication, refusal = self._resolve(request, None)
+        if refusal:
+            return refusal
+        body = self._jpeg(publication)
+        if body is None:
+            return _not_found("no_image")
+        response = HttpResponse(b"", content_type="image/jpeg")
+        response["Content-Length"] = str(len(body))
         logger.info("public_image_served")
         return _harden(response)

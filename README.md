@@ -139,6 +139,13 @@ motivo do erro) e você pode **tentar de novo só as que falharam**. Detalhes: `
 - **Sem duplicar às cegas:** se o Hub não souber se a plataforma publicou (tempo esgotado, conexão cortada, worker reiniciado), o alvo fica **Incerto** e nunca é reenviado sozinho: veja a seção abaixo.
 
 
+## Excluir publicações
+
+Duas ações separadas, sempre com confirmação e só para o dono, na tela da publicação (e **Remover do Hub** também na lista):
+- **Remover do Hub:** apaga a publicação (ou só um destino) do histórico e a **imagem** do volume. **Não** apaga o post na rede. Fica bloqueado enquanto algum destino está sendo enviado; o último destino removido leva a publicação junto.
+- **Apagar na plataforma:** chama a API para apagar o post de um destino, ou de todos os possíveis. Funciona no **Facebook** (token da Página) e no **Threads** (exige a permissão `threads_delete`: habilite-a no app Meta e **reconecte** os perfis já conectados; limite de 100 por dia). O destino continua no histórico como **Apagado na plataforma**.
+- **Instagram e WhatsApp:** o Hub não apaga posts (a Meta anunciou a exclusão do Instagram, mas ela ainda não está no Hub): apague pelo app. Se a plataforma não responder, nada é marcado como apagado ("não foi possível confirmar") e você pode tentar de novo com segurança.
+
 ## Threads (perfil + texto + imagem)
 
 Conecta um perfil do Threads (login próprio) e publica **texto e imagem** nele — sozinho ou **junto com Páginas do Facebook** no mesmo
@@ -147,7 +154,7 @@ houver Página do Facebook marcada e, quando existe, **vai também ao Threads** 
 `specs/0004-threads-conectar-e-publicar/` e `specs/0005-threads-imagem/`.
 
 ### Configurar o app na Meta
-1. No app, adicione o caso de uso **Acessar a API do Threads** e, em *Permissões e recursos*, `threads_basic` e `threads_content_publish`.
+1. No app, adicione o caso de uso **Acessar a API do Threads** e, em *Permissões e recursos*, `threads_basic`, `threads_content_publish` e `threads_delete` (apagar posts; contas já conectadas precisam **reconectar** para recebê-la).
 2. Nas **configurações do caso de uso do Threads**: copie o **ID do app do Threads** e a **chave secreta do app do Threads**
    (são **diferentes** das do app principal) e cadastre em *Redirecionar URLs de callback* o valor de `THREADS_REDIRECT_URI` — **HTTPS obrigatório**.
    Deixe vazios os callbacks de desinstalação e exclusão por enquanto.
@@ -192,6 +199,24 @@ docker run --rm --name social-hub-tunnel cloudflare/cloudflared:latest tunnel --
   60 dias a conta passa a "Reconexão necessária" e basta **Reconectar**.
 - Limite da Meta: 250 publicações por 24 h por perfil. Vídeo, carrossel e respostas no Threads ainda não existem.
 - Os callbacks de **desinstalação** e **exclusão de dados** ainda não são tratados (exigidos para o modo Live da Meta).
+
+## Instagram (imagem + legenda, pela Página)
+
+Publica **imagem + legenda** numa **conta profissional do Instagram** (Business ou Creator) **vinculada a uma Página do Facebook** que você administra.
+Não há OAuth próprio: a conta é alcançada pela **Página** já conectada, com o mesmo token (cifrado).
+
+### Configurar o app na Meta
+1. Em **Casos de uso**, adicione **Gerenciar mensagens e conteúdo no Instagram** (API do Instagram com login do Facebook) e inclua `instagram_basic` e `instagram_content_publish`
+   (além de `pages_show_list`/`pages_read_engagement`) na **configuração do Login do Facebook para Empresas** usada em `META_LOGIN_CONFIG_ID`.
+2. Em modo **Dev**, o usuário precisa ter função no app. O **App Review** só é necessário para outros usuários.
+3. **Reconecte a Página** em Contas conectadas: o token antigo foi emitido sem as permissões do Instagram. Se a Página tem Instagram vinculado, a **conta Instagram aparece sozinha** (@usuário, "via Página …").
+
+### Regras
+- **Imagem obrigatória**, proporção de **4:5 a 1,91:1**, largura **≥ 320 px**; legenda até **2.200** caracteres e **30** hashtags. O Hub rejeita antes de criar a publicação (não corta nem trunca).
+- A imagem precisa de **endereço público HTTPS** (`PUBLIC_BASE_URL`, túnel em desenvolvimento), como no Threads: o Instagram baixa de `/publico/instagram.jpg?t=…` (JPEG; PNG é convertido só nessa entrega, a URL expira e só vale com alvo Instagram em andamento).
+- O envio é feito pelo **worker**: cria o container, espera ficar pronto (`INSTAGRAM_CONTAINER_WAIT_SECONDS`, padrão 60) e publica. Se o Hub **não receber resposta** ao publicar, o alvo fica **Incerto** (confira no Instagram e escolha **Já foi publicado** ou **Reenviar**).
+- Desconectar a **Página** também remove a conta Instagram dela; desconectar só o Instagram remove apenas ela (volta ao reconectar a Página).
+- Limite de cerca de 100 publicações por 24 h por conta (mensagem de limite). Reels, Stories, carrossel e vídeo ficam fora desta versão.
 
 ## WhatsApp (Status) via Evolution API
 
@@ -283,4 +308,4 @@ docker compose cp web:/data/backup.sqlite3 ./backup.sqlite3
 
 ## Próximas etapas
 
-Agendamento (a fila/worker já existe: falta `scheduled_at` e a tela Agenda), insights reais na dashboard e Instagram — todos no app `social`. Para o WhatsApp: grupos/contatos, vídeo e lista de contatos do Status.
+Agendamento (a fila/worker já existe: falta `scheduled_at` e a tela Agenda), insights reais na dashboard e Stories/carrossel do Instagram — todos no app `social`. Para o WhatsApp: grupos/contatos, vídeo e lista de contatos do Status.

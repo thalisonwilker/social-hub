@@ -56,3 +56,4 @@ alwaysApply: false
 ## Promovidas (histórico curto)
 > Rastro de para onde foram as lições podadas — só o link, sem reexplicar. Poda este histórico também.
 - <YYYY-MM-DD: "<lição>" → [ADR-NNNN](architecture/adr/NNNN-*.md) / glossary / CLAUDE.md>
+- 2026-11-18 · Graph/log · O `BaseGraphClient` logava `endpoint=<caminho>`: em `DELETE /{post_id}` isso vazaria o id do post · chamadas cujo caminho é um id passam `label="delete"` para o log/erro.

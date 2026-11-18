@@ -14,6 +14,9 @@ alwaysApply: true
 
 ## Em andamento / próximo passo
 > O que está aberto agora e a **próxima ação concreta** (não "continuar a feature" — diga o passo).
+- **0010 excluir publicações**: implementada (tasks 1–6, 810 testes verdes, nada commitado). Próximo: **UAT real** — habilitar `threads_delete` no app Meta e reconectar o Threads; apagar um post de teste no Facebook e no Threads e conferir; repetir (confirmar o código de "objeto inexistente") e **Remover do Hub**; checar se o Facebook apaga posts criados fora do app. ADR-0014.
+- **0009 Instagram (via Página)**: implementada (tasks 1–9, 760 testes verdes, nada commitado). Próximo: **UAT real** — confirmar que o `config_id` inclui `instagram_basic` + `instagram_content_publish`, **reconectar a Página** (a conta Instagram aparece sozinha), subir túnel HTTPS/`PUBLIC_BASE_URL` e publicar `exemplos/teste-publicacao.jpg`; confirmar o campo `instagram_business_account`, o código de erro do limite diário e a decisão A × B (login unificado). ADR-0013.
+- **0008 gerar imagem com IA (Gemini)**: implementada (655 testes verdes, nada commitado). Próximo: UAT com chave real do Gemini e confirmar os IDs de modelo em `GEMINI_IMAGE_MODELS` (padrões provisórios); depois commitar e marcar a spec como validada. ADR-0012.
 - Feature ativa: nenhuma. `specs/0006-whatsapp-status/` **implementada** (tasks 1–10, 496 testes verdes) com UAT real na Evolution 2.3.7: cadastro, falha + Tentar novamente e envio real (texto e imagem em data URI) funcionaram. Aprendizados: timeout não é falha (a Evolution concluiu depois e o reenvio duplicou o Status; ~2265 contatos), `allContacts` = contatos que a Evolution conhece (não a agenda). Pendências: apagar o Status duplicado de teste pelo celular; fila/idempotência para o WhatsApp (issues #1 e #4).
 - Antes: `specs/0005-threads-imagem/` — implementada; UAT da imagem OK (falta só a falha forçada + Tentar novamente com o túnel fora).
 - **UAT da imagem (2026-11-17): OK** — Facebook + Threads com imagem 2/2 publicados (1ª tentativa falhou com o túnel recém-criado; reenvio funcionou). Falta só a falha forçada + Tentar novamente (túnel fora) e fechar o túnel.
@@ -35,6 +38,8 @@ alwaysApply: true
 - 2026-11-17: URL pública temporária e assinada para a imagem do Threads — [ADR-0008](architecture/adr/0008-url-publica-temporaria-assinada-para-imagem-do-threads.md)
 - 2026-11-17: Orçamento de tempo por requisição de publicação — [ADR-0009](architecture/adr/0009-orcamento-de-tempo-por-requisicao-de-publicacao.md)
 - 2026-11-17: WhatsApp (Status) via Evolution — conta = instância com chave cifrada, host só do servidor, imagem em base64, Baileys não oficial — [ADR-0010](architecture/adr/0010-whatsapp-status-via-evolution-api-instancia-chave-cifrada-e-host-fixo.md)
+- 2026-11-18: Exclusão em duas ações (Remover do Hub / Apagar na plataforma), `deleted_at` no alvo, Facebook e Threads — [ADR-0014](architecture/adr/0014-excluir-publicacoes-remover-do-hub-e-apagar-na-plataforma.md)
+- 2026-11-18: Instagram pela Página (conta vinculada, token da Página, container, imagem JPEG em `/publico/instagram.jpg`, Incerto no `media_publish`) — [ADR-0013](architecture/adr/0013-instagram-via-pagina-conta-vinculada-token-da-pagina-e-imagem-jpeg-publica.md)
 - 2026-11-17: Seleção multi-Página numa tela do Hub; Páginas pendentes ficam na sessão, com tokens cifrados (TTL 10 min).
 
 ## Bloqueios

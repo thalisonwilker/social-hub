@@ -17,13 +17,13 @@ from django.db import OperationalError, transaction
 from django.db.models import F, Q
 from django.utils import timezone
 
-from apps.social.conf import evolution_configured, public_url_configured, threads_configured
+from apps.social.conf import evolution_configured, meta_configured, public_url_configured, threads_configured
 from apps.social.crypto import TokenCryptoError
 from apps.social import public
 from apps.social.images import SanitizedImage
 from apps.social.models import Publication, PublicationTarget, SocialAccount
 
-from . import evolution_connect, threads_publish, threads_tokens
+from . import evolution_connect, instagram_publish, threads_publish, threads_tokens
 from .evolution import EvolutionApiError, EvolutionClient
 from .meta import GraphClient, MetaApiError
 from .threads import ThreadsClient
@@ -52,6 +52,13 @@ MSG_THREADS_IMAGE_REJECTED = "O Threads não conseguiu processar a imagem. Tente
 MSG_THREADS_IMAGE_PENDING = "O Threads ainda está processando a imagem. Tente novamente."
 MSG_THREADS_NO_PUBLIC_URL = "O endereço público do Hub não está configurado: não dá para enviar a imagem ao Threads."
 
+MSG_IG_REAUTH = "Reconexão necessária para esta conta do Instagram."
+MSG_IG_PENDING = "O Instagram ainda está processando a imagem. Tente novamente."
+MSG_IG_IMAGE_REJECTED = "O Instagram não conseguiu processar a imagem. Tente novamente."
+MSG_IG_NO_PUBLIC_URL = "O endereço público do Hub não está configurado: não dá para enviar a imagem ao Instagram."
+MSG_IG_NO_IMAGE = "O Instagram só publica com imagem, e esta publicação não tem imagem."
+MSG_META_NOT_CONFIGURED = "Integração com a Meta não configurada."
+
 MSG_WHATSAPP_NOT_CONFIGURED = "Integração com o WhatsApp não configurada."
 MSG_WHATSAPP_REAUTH = "Reconecte o número na Evolution."
 MSG_WHATSAPP_NETWORK = "Falha de comunicação com a Evolution."
@@ -61,7 +68,7 @@ MSG_CREDENTIALS_WHATSAPP = "Não foi possível ler a chave desta instância. Atu
 
 TOKEN_CODES = {102, 190}
 PERMISSION_CODES = {10, 200, 220}
-RATE_LIMIT_CODES = {4, 17, 32, 613}
+RATE_LIMIT_CODES = {4, 9, 17, 32, 613}
 BLOCKED_CODES = {368}
 NETWORK_CODES = {"network", "bad_response", "timeout", "interrupted"}
 
@@ -217,6 +224,8 @@ def dispatch_claimed(
     """Envia um alvo JÁ reivindicado (`sending`) pela sua plataforma e devolve o estado final gravado."""
     if claimed.platform == SocialAccount.Platform.THREADS:
         _publish_threads_target(claimed, pool.threads(), max_wait=threads_max_wait)
+    elif claimed.platform == SocialAccount.Platform.INSTAGRAM:
+        _publish_instagram_target(claimed, pool.graph(), max_wait=threads_max_wait)
     elif claimed.platform == SocialAccount.Platform.WHATSAPP_STATUS:
         _publish_whatsapp_target(claimed, pool.evolution(), timeout=evolution_timeout)
     else:
@@ -419,6 +428,74 @@ def _publish_threads_target(target: PublicationTarget, client: ThreadsClient, *,
         error_code="",
     )
     logger.info("publish_ok page=%s platform=threads", target.page_external_id)
+    return True
+
+
+def _mark_instagram_reauth(account: SocialAccount, code) -> None:
+    """Token recusado: o Instagram usa o token da Página, então AMBAS as contas pedem reconexão."""
+    ids = [account.pk] + ([account.parent_id] if account.parent_id else [])
+    SocialAccount.objects.filter(pk__in=ids).update(
+        status=SocialAccount.Status.NEEDS_REAUTH, last_error=f"Meta erro {code}", last_checked_at=timezone.now()
+    )
+
+
+def _publish_instagram_target(target: PublicationTarget, client: GraphClient, *, max_wait: float | None = None) -> bool:
+    """Publica no Instagram: imagem + legenda (spec 0009). Resultado gravado no alvo.
+
+    Container que não fica pronto → FALHA reenviável; `media_publish` sem resposta → INCERTO (nunca reenvia sozinho).
+    """
+    account, publication = target.account, target.publication
+    if not meta_configured():
+        _mark_failed(target, MSG_META_NOT_CONFIGURED, "not_configured")
+        return False
+    if account.needs_reauth:  # não chama a Meta até a conta voltar a ficar ativa
+        _mark_failed(target, MSG_IG_REAUTH, "reauth")
+        return False
+    if not publication.has_image:
+        _mark_failed(target, MSG_IG_NO_IMAGE, "no_image")
+        return False
+    try:
+        token = account.get_token()
+        if not target.external_container_id:
+            if not public_url_configured():
+                _mark_failed(target, MSG_IG_NO_PUBLIC_URL, "no_public_url")
+                return False
+            if not publication.image.storage.exists(publication.image.name):
+                _mark_failed(target, MSG_IMAGE_MISSING, "image_missing")
+                return False
+        outcome = instagram_publish.publish_image(
+            target, client, token, publication.text, lambda: public.build_instagram_image_url(publication), max_wait=max_wait
+        )
+    except TokenCryptoError:
+        _mark_failed(target, MSG_CREDENTIALS, "crypto")
+        return False
+    except instagram_publish.ContainerNotReady:
+        _mark_failed(target, MSG_IG_PENDING, "container_pending")  # mantém o container para retomar
+        return False
+    except instagram_publish.ContainerFailed as exc:
+        instagram_publish.forget_container(target)  # próximo envio cria outro, com nova URL
+        _mark_failed(target, MSG_IG_IMAGE_REJECTED, exc.status.lower())
+        return False
+    except MetaApiError as exc:
+        if exc.outcome_unknown:  # `media_publish` enviado sem resposta: o Instagram pode ter publicado
+            _mark_uncertain(target, _uncertain_code(exc))
+            return False
+        if exc.is_token_error:
+            _mark_instagram_reauth(account, exc.code or exc.status)
+            _mark_failed(target, MSG_IG_REAUTH, str(exc.code or exc.status or "unknown"))
+        else:
+            _mark_failed(target, friendly_error(exc), str(exc.code or exc.status or "unknown"))
+        return False
+
+    PublicationTarget.objects.filter(pk=target.pk).update(
+        status=S.PUBLISHED,
+        external_post_id=outcome.post_id,
+        permalink=outcome.permalink,
+        published_at=timezone.now(),
+        error_message="",
+        error_code="",
+    )
+    logger.info("publish_ok page=%s platform=instagram", target.page_external_id)
     return True
 
 

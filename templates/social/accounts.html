@@ -47,13 +47,13 @@
       {% if account.picture_url %}
         <img src="{{ account.picture_url }}" alt="" class="h-11 w-11 rounded border border-line object-cover" referrerpolicy="no-referrer">
       {% else %}
-        <span class="flex h-11 w-11 items-center justify-center rounded border border-line bg-surface-2 text-muted"><i data-lucide="{% if account.platform == 'threads' %}at-sign{% elif account.platform == 'whatsapp_status' %}message-circle{% else %}flag{% endif %}" class="h-5 w-5"></i></span>
+        <span class="flex h-11 w-11 items-center justify-center rounded border border-line bg-surface-2 text-muted"><i data-lucide="{% if account.platform == 'threads' %}at-sign{% elif account.platform == 'whatsapp_status' %}message-circle{% elif account.platform == 'instagram' %}instagram{% else %}flag{% endif %}" class="h-5 w-5"></i></span>
       {% endif %}
 
       <div class="min-w-0 flex-1">
         <p class="truncate font-medium">{{ account.name }}</p>
         <p class="truncate text-xs text-muted">
-          {{ account.get_platform_display }}{% if account.platform == 'whatsapp_status' %} · instância {{ account.external_id }}{% endif %}{% if account.username %} · @{{ account.username }}{% elif account.category %} · {{ account.category }}{% endif %} · conectada em {{ account.connected_at|date:"d/m/Y" }}{% if account.token_expires_at %} · token expira em {{ account.days_until_token_expiry }} dia(s){% endif %}
+          {{ account.get_platform_display }}{% if account.platform == 'whatsapp_status' %} · instância {{ account.external_id }}{% elif account.platform == 'instagram' and account.parent %} · via Página {{ account.parent.name }}{% endif %}{% if account.username %} · @{{ account.username }}{% elif account.category %} · {{ account.category }}{% endif %} · conectada em {{ account.connected_at|date:"d/m/Y" }}{% if account.token_expires_at %} · token expira em {{ account.days_until_token_expiry }} dia(s){% endif %}
         </p>
       </div>
 
@@ -79,7 +79,7 @@
           {% csrf_token %}
           <button type="submit" class="btn"><i data-lucide="refresh-cw" class="h-4 w-4"></i>Verificar</button>
         </form>
-        <form method="post" action="{% url 'social:account_disconnect' account.pk %}" data-confirm="Desconectar “{{ account.name }}”? {% if account.platform == 'whatsapp_status' %}A chave da instância{% else %}O token{% endif %} será apagad{% if account.platform == 'whatsapp_status' %}a{% else %}o{% endif %} do Social Hub.">
+        <form method="post" action="{% url 'social:account_disconnect' account.pk %}" data-confirm="Desconectar “{{ account.name }}”? {% if account.platform == 'facebook_page' %}O Instagram vinculado a esta Página também será desconectado. {% endif %}{% if account.platform == 'whatsapp_status' %}A chave da instância{% else %}O token{% endif %} será apagad{% if account.platform == 'whatsapp_status' %}a{% else %}o{% endif %} do Social Hub.">
           {% csrf_token %}
           <button type="submit" class="btn text-danger"><i data-lucide="trash-2" class="h-4 w-4"></i>Desconectar</button>
         </form>

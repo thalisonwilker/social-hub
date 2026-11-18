@@ -10,6 +10,7 @@ from .conf import public_base_url
 
 SALT = "threads-public-image"
 ROUTE = "/publico/imagem{ext}"
+INSTAGRAM_ROUTE = "/publico/instagram.jpg"  # sempre JPEG (spec 0009)
 
 
 class PublicUrlNotConfigured(RuntimeError):
@@ -47,3 +48,11 @@ def build_public_image_url(publication) -> str:
         raise PublicUrlNotConfigured("Endereço público HTTPS não configurado.")
     ext = image_extension(publication.image_content_type)
     return f"{base}{ROUTE.format(ext=ext)}?t={sign_image_token(publication.pk)}"
+
+
+def build_instagram_image_url(publication) -> str:
+    """URL pública JPEG para o Instagram baixar a imagem (mesmo token assinado; escopo próprio na rota)."""
+    base = public_base_url()
+    if not base:
+        raise PublicUrlNotConfigured("Endereço público HTTPS não configurado.")
+    return f"{base}{INSTAGRAM_ROUTE}?t={sign_image_token(publication.pk)}"

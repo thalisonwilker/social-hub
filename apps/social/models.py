@@ -12,6 +12,7 @@ class SocialAccount(models.Model):
         FACEBOOK_PAGE = "facebook_page", "Página do Facebook"
         THREADS = "threads", "Perfil do Threads"
         WHATSAPP_STATUS = "whatsapp_status", "WhatsApp (Status)"
+        INSTAGRAM = "instagram", "Instagram"
 
     class Status(models.TextChoices):
         ACTIVE = "active", "Ativa"
@@ -37,6 +38,10 @@ class SocialAccount(models.Model):
     # Só para tokens que expiram (Threads, 60 dias). Páginas do Facebook não expiram: ficam nulos.
     token_expires_at = models.DateTimeField(null=True, blank=True)
     token_refreshed_at = models.DateTimeField(null=True, blank=True)
+    # Conta Instagram (spec 0009): a Página do Facebook pela qual ela é alcançada; remover a Página remove a conta.
+    parent = models.ForeignKey(
+        "self", null=True, blank=True, on_delete=models.CASCADE, related_name="linked_accounts"
+    )
 
     class Meta:
         ordering = ["name"]
@@ -161,6 +166,8 @@ class PublicationTarget(models.Model):
     attempts = models.PositiveSmallIntegerField(default=0)
     last_attempt_at = models.DateTimeField(null=True, blank=True)
     published_at = models.DateTimeField(null=True, blank=True)
+    # Spec 0010: o post foi apagado NA PLATAFORMA (o alvo continua `published`; o registro fica no histórico).
+    deleted_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["page_name", "id"]
@@ -172,6 +179,10 @@ class PublicationTarget(models.Model):
 
     def __str__(self) -> str:
         return f"{self.page_name} · {self.get_status_display()}"
+
+    @property
+    def is_deleted(self) -> bool:
+        return self.deleted_at is not None
 
     @property
     def is_retryable(self) -> bool:
@@ -235,3 +246,50 @@ class WorkerHeartbeat(models.Model):
             return False
         return ((now or timezone.now()) - beat_at) <= timedelta(seconds=settings.WORKER_HEARTBEAT_STALE_SECONDS)
 
+
+
+class AiProviderKey(models.Model):
+    """Chave de API de um provedor de IA (hoje só Gemini), do próprio usuário, SEMPRE cifrada (spec 0008, ADR-0012)."""
+
+    GEMINI = "gemini"
+    DEEPSEEK = "deepseek"
+
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="ai_keys")
+    provider = models.CharField(max_length=16, default=GEMINI)
+    api_key_enc = models.TextField(editable=False)
+    last4 = models.CharField(max_length=4, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["owner", "provider"], name="unique_ai_key_per_owner")]
+
+    def __str__(self) -> str:  # nunca inclui a chave
+        return f"Chave {self.provider} de {self.owner_id}"
+
+    def set_key(self, key: str) -> None:
+        self.api_key_enc = encrypt_token(key)
+        self.last4 = key[-4:]
+
+    def get_key(self) -> str:
+        return decrypt_token(self.api_key_enc)
+
+
+class GeneratedImage(models.Model):
+    """Imagem gerada por IA, já sanitizada, temporária (expira); vira a imagem da publicação ao publicar (spec 0008)."""
+
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="generated_images")
+    file = models.FileField(upload_to="generated/%Y/%m/")
+    content_type = models.CharField(max_length=32)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def is_expired(self, now=None) -> bool:
+        ttl = settings.GENERATED_IMAGE_TTL_SECONDS
+        return (now or timezone.now()).timestamp() - self.created_at.timestamp() > ttl
+
+    @classmethod
+    def purge_expired(cls) -> None:
+        """Limpeza oportunista (arquivo e linha) das imagens vencidas."""
+        cutoff = timezone.now() - timezone.timedelta(seconds=settings.GENERATED_IMAGE_TTL_SECONDS)
+        for item in cls.objects.filter(created_at__lt=cutoff):
+            item.file.delete(save=False)
+            item.delete()

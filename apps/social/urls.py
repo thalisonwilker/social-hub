@@ -6,7 +6,7 @@ from django.urls import path, re_path
 
 from apps.core.views import PlaceholderView
 
-from . import views, views_public, views_publications, views_threads, views_whatsapp
+from . import views, views_ai, views_public, views_publications, views_threads, views_whatsapp
 
 app_name = "social"
 
@@ -30,8 +30,27 @@ urlpatterns = [
         views_publications.TargetResolveView.as_view(),
         name="target_resolve",
     ),
+    path("publicacoes/<int:pk>/remover/", views_publications.PostRemoveView.as_view(), name="post_remove"),
+    path("publicacoes/<int:pk>/apagar/", views_publications.PostDeleteRemoteView.as_view(), name="post_delete_remote"),
+    path(
+        "publicacoes/<int:pk>/alvos/<int:target_pk>/remover/",
+        views_publications.TargetRemoveView.as_view(),
+        name="target_remove",
+    ),
+    path(
+        "publicacoes/<int:pk>/alvos/<int:target_pk>/apagar/",
+        views_publications.TargetDeleteRemoteView.as_view(),
+        name="target_delete_remote",
+    ),
     path("publicacoes/<int:pk>/imagem/", views_publications.PostImageView.as_view(), name="post_image"),
+    path("publicacoes/imagem-ia/gerar/", views_ai.GenerateImageView.as_view(), name="ai_generate"),
+    path("publicacoes/imagem-ia/chave/", views_ai.SaveKeyView.as_view(), name="ai_key_save"),
+    path("publicacoes/texto-ia/gerar/", views_ai.GenerateTextView.as_view(), name="ai_text"),
+    path("publicacoes/imagem-ia/chave/testar/", views_ai.TestKeyView.as_view(), name="ai_key_test"),
+    path("publicacoes/imagem-ia/chave/remover/", views_ai.RemoveKeyView.as_view(), name="ai_key_remove"),
+    path("publicacoes/imagem-ia/<int:pk>/", views_ai.GeneratedImageView.as_view(), name="ai_image"),
     re_path(r"^publico/imagem\.(?P<ext>jpg|png)$", views_public.PublicImageView.as_view(), name="public_image"),
+    path("publico/instagram.jpg", views_public.PublicInstagramImageView.as_view(), name="public_instagram_image"),
     path(
         "agenda/",
         PlaceholderView.as_view(

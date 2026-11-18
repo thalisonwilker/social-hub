@@ -72,7 +72,7 @@ class BackgroundUiTests(PublicationTestMixin, TestCase):
         self.assertContains(response, "Já foi publicado")
         self.assertContains(response, "Reenviar")
         self.assertContains(response, "Reenviar pode duplicar o post na plataforma. Continuar?")
-        self.assertContains(response, "csrfmiddlewaretoken", count=3)  # 2 formulários + sair
+        self.assertContains(response, "csrfmiddlewaretoken", count=5)  # 2 formulários + sair + 2 "Remover do Hub" (spec 0010)
         self.assertNotIn('disabled aria-disabled="true" title="Sem conta', html)
 
     def test_AC_11_resend_is_disabled_without_an_account_but_already_published_is_not(self):

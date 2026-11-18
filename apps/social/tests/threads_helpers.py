@@ -21,6 +21,7 @@ THREADS_SETTINGS = {
     "THREADS_GRAPH_VERSION": "v1.0",
     "THREADS_REFRESH_WINDOW_DAYS": 30,
     "THREADS_CONTAINER_WAIT_SECONDS": 20,
+    "PUBLIC_BASE_URL": "",  # hermético: não depende do .env do desenvolvedor (túnel)
     "META_TOKEN_ENCRYPTION_KEY": KEY,
     "ALLOWED_HOSTS": [HOST, "testserver", "localhost"],
 }
