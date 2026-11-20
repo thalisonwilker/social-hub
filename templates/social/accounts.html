@@ -45,9 +45,9 @@
   {% for account in accounts %}
     <article class="flex flex-wrap items-center gap-4 px-5 py-4 {% if not forloop.last %}border-b border-line{% endif %}">
       {% if account.picture_url %}
-        <img src="{{ account.picture_url }}" alt="" class="h-11 w-11 rounded border border-line object-cover" referrerpolicy="no-referrer">
+        <img src="{{ account.picture_url }}" alt="" data-mui="avatar" class="h-11 w-11" referrerpolicy="no-referrer">
       {% else %}
-        <span class="flex h-11 w-11 items-center justify-center rounded border border-line bg-surface-2 text-muted"><i data-lucide="{% if account.platform == 'threads' %}at-sign{% elif account.platform == 'whatsapp_status' %}message-circle{% elif account.platform == 'instagram' %}instagram{% else %}flag{% endif %}" class="h-5 w-5"></i></span>
+        <span data-mui="avatar" class="h-11 w-11"><i data-lucide="{% if account.platform == 'threads' %}at-sign{% elif account.platform == 'whatsapp_status' %}message-circle{% elif account.platform == 'instagram' %}instagram{% else %}flag{% endif %}" class="h-5 w-5"></i></span>
       {% endif %}
 
       <div class="min-w-0 flex-1">

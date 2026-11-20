@@ -5,7 +5,7 @@ const token = (name) => `rgb(var(--${name}) / <alpha-value>)`;
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   darkMode: "class",
-  content: ["./templates/**/*.html", "./apps/**/templates/**/*.html", "./static/js/**/*.js"],
+  content: ["./templates/**/*.html", "./apps/**/templates/**/*.html", "./static/js/**/*.js", "./frontend/**/*.{js,jsx}"],
   theme: {
     fontFamily: {
       sans: ['"Inter Variable"', "Inter", "ui-sans-serif", "system-ui", "-apple-system", "Segoe UI", "sans-serif"],

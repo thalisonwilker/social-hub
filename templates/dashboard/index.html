@@ -59,9 +59,7 @@
           <span class="badge">{% if p.connected %}Conectado{% else %}Não conectado{% endif %}</span>
         </div>
         <div class="flex items-center gap-3">
-          <div class="h-1.5 flex-1 overflow-hidden rounded-sm bg-surface-2 ring-1 ring-inset ring-line">
-            <div class="h-full bg-accent" style="width: {{ p.share }}%"></div>
-          </div>
+          <div data-mui="progress" data-value="{{ p.share }}" class="flex-1"></div>
           <span class="w-9 text-right text-xs text-muted">{{ p.share }}%</span>
         </div>
       </li>

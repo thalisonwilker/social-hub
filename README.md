@@ -13,7 +13,7 @@ Plataforma web para centralizar o gerenciamento e a publicação de conteúdos e
 | Camada | Tecnologia |
 | --- | --- |
 | Backend | Python 3.13 + Django 5.2 LTS |
-| Frontend | Django Templates, HTML5, CSS3 (Tailwind CSS 3), JavaScript puro |
+| Frontend | Django Templates + Tailwind CSS 3 (layout) + MUI/React elevando o HTML (ADR-0015) |
 | Ícones / fonte | Lucide e Inter (servidos localmente, sem CDN) |
 | Banco | SQLite (modo WAL) |
 | Servidor | Gunicorn + WhiteNoise (estáticos) |
@@ -53,7 +53,7 @@ Requer Python 3.13+ e Node 20+ (Node só é usado para compilar o CSS).
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-npm install && npm run build      # gera static/dist (CSS, Lucide, Inter)
+npm install && npm run build      # gera static/dist (CSS, Lucide, Inter e o bundle React/MUI)
 cp .env.example .env
 python manage.py migrate
 python manage.py createsuperuser

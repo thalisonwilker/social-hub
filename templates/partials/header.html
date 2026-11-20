@@ -1,4 +1,4 @@
-<header class="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-line bg-surface/90 px-4 backdrop-blur sm:px-6 lg:px-8">
+<header data-mui="header" class="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-line bg-surface/90 px-4 backdrop-blur sm:px-6 lg:px-8">
   <button type="button" data-sidebar-open class="btn btn-ghost -ml-2 p-2 lg:hidden" aria-label="Abrir menu">
     <i data-lucide="menu" class="h-5 w-5"></i>
   </button>
@@ -21,7 +21,7 @@
 
     <div class="mx-1 hidden h-6 w-px bg-line sm:block"></div>
 
-    <a href="{% url 'accounts:profile' %}" class="flex items-center gap-2 rounded px-1.5 py-1 hover:bg-surface-2">
+    <a href="{% url 'accounts:profile' %}" data-user-link data-initial="{{ request.user.username|slice:":1" }}" data-name="{{ request.user.get_username }}" class="flex items-center gap-2 rounded px-1.5 py-1 hover:bg-surface-2">
       <span class="flex h-7 w-7 items-center justify-center rounded-full bg-accent text-xs font-semibold uppercase text-accent-fg">{{ request.user.username|slice:":1" }}</span>
       <span class="hidden text-sm font-medium sm:block">{{ request.user.get_username }}</span>
     </a>

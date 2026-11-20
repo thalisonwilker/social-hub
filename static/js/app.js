@@ -61,6 +61,17 @@
   document.addEventListener("submit", function (event) {
     var form = event.target;
     var message = form.getAttribute("data-confirm");
+    if (message && window.muiConfirm) {
+      // Diálogo MUI (assíncrono): cancela este envio e reenvia, sem o aviso, se o usuário confirmar.
+      event.preventDefault();
+      var submitter = event.submitter;
+      window.muiConfirm(message).then(function (ok) {
+        if (!ok) return;
+        form.removeAttribute("data-confirm");
+        if (form.requestSubmit) { form.requestSubmit(submitter || undefined); } else { form.submit(); }
+      });
+      return;
+    }
     if (message && !window.confirm(message)) { event.preventDefault(); return; }
     // Evita envio duplo: desabilita os botões de envio logo após o submit.
     if (form.hasAttribute("data-disable-on-submit")) {
