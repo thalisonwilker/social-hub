@@ -71,7 +71,7 @@ config/                 Projeto Django
   settings/prod.py      Produção (DEBUG off, SECRET_KEY obrigatória, HTTPS opcional)
 apps/
   core/                 Healthcheck, navegação da sidebar, view de páginas reservadas
-  accounts/             Login, logout, perfil, troca de senha, comando ensure_admin
+  accounts/             Cadastro, login (por e-mail), logout, perfil, troca de senha, comando ensure_admin
   dashboard/            Dashboard (dados fictícios em demo.py)
   social/               Integração com a Meta: contas, OAuth, cliente Graph API, tokens cifrados, publicações e imagens
 templates/              layout.html (sidebar + header + conteúdo), partials, páginas
@@ -85,7 +85,8 @@ docker-compose.yml      Serviço web + volumes `sqlite_data` (banco) e `media_da
 
 Decisões relevantes:
 
-- **Login obrigatório global** via `LoginRequiredMiddleware`: toda nova view é protegida por padrão; só quem usa `@login_not_required` (login e `/healthz/`) é pública.
+- **Login obrigatório global** via `LoginRequiredMiddleware`: toda nova view é protegida por padrão; só quem usa `@login_not_required` (login, cadastro em `/cadastro/`, `/termos/`, `/privacidade/` e `/healthz/`) é pública.
+- **Cadastro público** (spec 0013): nome, sobrenome, e-mail e senha forte (≥ 8, maiúscula, número e caractere especial); o e-mail é gravado em minúsculas como `username` e o login aceita o e-mail sem diferenciar maiúsculas. Envios repetidos criam um só usuário (chave de idempotência no banco).
 - **Tema** por variáveis CSS (`frontend/input.css`); o modo escuro só troca valores, e a escolha fica em `localStorage`.
 - **Navegação** em um único lugar: `apps/core/context_processors.py`.
 

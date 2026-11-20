@@ -10,10 +10,11 @@ alwaysApply: true
 > todo. Diferente do **ADR** (decisão durável e imutável). Decisão estrutural → ADR; estado do
 > trabalho → aqui. Atualize ao **pausar/encerrar**; leia ao **retomar**. Use a skill `/handoff`.
 
-**Última atualização:** 2026-11-17 por Thalyson
+**Última atualização:** 2026-11-19 por Thalyson
 
 ## Em andamento / próximo passo
 > O que está aberto agora e a **próxima ação concreta** (não "continuar a feature" — diga o passo).
+- **0013 cadastro de usuário**: implementada (885 testes verdes, nada commitado; migração `accounts.0001_initial`; `npm run build` refeito). UAT no navegador feito: validação campo a campo, botão só habilita com tudo válido, cadastro → login com aviso, login com o e-mail em outra caixa. Próximo: **seu UAT** (tema claro, celular, duplo clique em Criar conta) e commitar. Login agora é por e-mail (`EmailOrUsernameBackend`; `admin` continua pelo username). Texto real de Termos/Política e limite de tentativas no cadastro/login ficam para depois.
 - **0012 interface MUI**: implementada (849 testes verdes, nada commitado). Bundle `frontend/mui/*` → `static/dist/js/mui.js` (`npm run build`); ADR-0015. Próximo: **UAT visual** nas telas restantes (detalhe/lista de publicações, WhatsApp, seleção de Páginas, Minha conta) e em celular; `<input type=file>` e `<details>` ficam nativos. Telas já conferidas no navegador: login, seleção, wizard, dashboard, contas, nova publicação (claro/escuro) e diálogo de confirmação.
 - **0011 perfis + wizard + login novo**: implementada (841 testes verdes, nada commitado; CSS rebuild com `npm run build`). Próximo: **UAT visual** (login, seleção, wizard com OAuth real do Facebook/Threads voltando ao dashboard) e commitar. Contas existentes migram para o perfil "Principal". Twitter/X e TikTok são só ícones "Em breve"; renomear/excluir perfil ficou fora do escopo.
 - **0010 excluir publicações**: implementada (tasks 1–6, 810 testes verdes, nada commitado). Próximo: **UAT real** — habilitar `threads_delete` no app Meta e reconectar o Threads; apagar um post de teste no Facebook e no Threads e conferir; repetir (confirmar o código de "objeto inexistente") e **Remover do Hub**; checar se o Facebook apaga posts criados fora do app. ADR-0014.
@@ -31,6 +32,7 @@ alwaysApply: true
 
 ## Decisões recentes
 > Resumo cronológico. Se for difícil de reverter, vire um ADR e linke aqui.
+- 2026-11-19: Cadastro público com `username` = e-mail em minúsculas e login por e-mail sem diferenciar maiúsculas; trava de idempotência no banco (chave assinada de 2 h, única, gravada na transação do usuário) porque há 2 workers e nenhum cache compartilhado — spec 0013.
 - 2026-11-17: tokens de Página criptografados com Fernet, chave no `.env` — [ADR-0002](architecture/adr/0002-tokens-de-pagina-criptografados-com-fernet.md)
 - 2026-11-17: OAuth com `config_id` + cliente Graph próprio no app `social`; Graph API fixada em v27.0 — [ADR-0003](architecture/adr/0003-integracao-meta-oauth-config-id-e-cliente-graph-proprio.md)
 - 2026-11-17: Publicação síncrona em lotes de 5, idempotente por claim atômico — [ADR-0004](architecture/adr/0004-publicacao-sincrona-em-lotes-idempotente.md)

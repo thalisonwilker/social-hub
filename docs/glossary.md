@@ -15,11 +15,13 @@ alwaysApply: false
 | Alvo apagado | Alvo `published` com `deleted_at`: o post foi apagado na plataforma; o registro continua no histórico. | Alvo Falhou | Social |
 | Alvo apagável | Alvo `published`, com id do post, conta ativa, plataforma com exclusão (Facebook/Threads) e ainda não apagado. | Alvo reenviável | Social |
 | Apagar na plataforma | Chamar a API da rede para excluir o post de um alvo (Facebook e Threads). Não remove o registro do Hub. | Remover do Hub | Social |
+| Cadastro | Criação de um Usuário do Social Hub pela própria pessoa em `/cadastro/` (nome, sobrenome, e-mail, senha forte, aceite dos termos); o e-mail vira o login. | Conectar (Conta social) | Contas de usuário |
 | Alvo em andamento | Alvo do Threads ou do Instagram em `pending`, `sending` ou `failed` (reenviável): ainda pode precisar da imagem. | Alvo publicado | Social |
 | Alvo Incerto | Alvo (`uncertain`) cujo envio pode ter sido concluído pela plataforma, mas o Hub não sabe; só o usuário o resolve. | Alvo Falhou (nada foi publicado) | Social |
 | Alvo misto | Publicação cujos destinos incluem Páginas do Facebook e perfis do Threads. | Publicação só do Facebook | Social |
 | Chamada com efeito | Chamada à plataforma que cria o post (upload do Facebook, `threads_publish`, `sendStatus`). | Chamadas preparatórias (container, estado) | Social |
 | Chave da instância | Credencial da instância da Evolution que autoriza enviar pelo número; guardada criptografada, nunca exibida. | Chave global da Evolution (poder total, não usada pelo Hub) | Social |
+| Chave de idempotência do cadastro | Valor assinado (2 h) que vai oculto no formulário de Cadastro; gravado com o usuário criado, faz envios repetidos criarem no máximo um usuário. | Claim atômico da publicação | Contas de usuário |
 | Conectar | Criar/atualizar uma Conta social a partir de uma Página selecionada. | Fazer login no Social Hub | Social |
 | `config_id` | Identificador da configuração de login (permissões e tipo de token) na Meta. | `app_id` | Social |
 | Conta de WhatsApp | Conta social cujo `external_id` é o nome de uma instância da Evolution já pareada; destino do Status. | Perfil/Página (têm OAuth e link) | Social |

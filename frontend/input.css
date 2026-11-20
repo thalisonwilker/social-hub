@@ -102,3 +102,10 @@
     @apply pointer-events-none absolute left-full z-50 ml-3 hidden whitespace-nowrap rounded border border-white/10 bg-zinc-900 px-2 py-1 text-xs text-white opacity-0 shadow-lg transition-opacity lg:block lg:group-hover:opacity-100 lg:group-focus-visible:opacity-100;
   }
 }
+
+/* Campo inválido (cadastro, spec 0013): o JS marca aria-invalid no <input>; vale com ou sem o MUI. */
+@layer components {
+  .input[aria-invalid="true"] { border-color: rgb(var(--danger)); }
+  .MuiOutlinedInput-root:has(input[aria-invalid="true"]) .MuiOutlinedInput-notchedOutline { border-color: rgb(var(--danger)); }
+  .MuiFormControl-root:has(input[aria-invalid="true"]) .MuiInputLabel-root { color: rgb(var(--danger)); }
+}

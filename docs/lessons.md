@@ -52,6 +52,8 @@ alwaysApply: false
 - 2026-11-17 · Evolution/log · O log da própria Evolution (container dela) mostra o motivo real de um Status recusado; o Hub não loga o corpo da resposta de propósito · para depurar o contrato, rode `scripts/uat_evolution.py` e olhe o log da Evolution.
 - 2026-11-17 · Evolution/audiência · `allContacts=true` usa TODOS os contatos que a Evolution guarda com nome (na instância de teste: 2265 de 2459), não a agenda do celular · pode alcançar quem nunca foi salvo; conferir `POST /chat/findContacts/{instância}` antes de publicar e considerar `statusJidList`.
 - 2026-11-17 · Python/macOS · O Python do python.org não traz certificados raiz (`CERTIFICATE_VERIFY_FAILED` em qualquer HTTPS) · scripts usam `/etc/ssl/cert.pem` (ou `Install Certificates.command`).
+- 2026-11-19 · MUI/lift · O `LiftButton` lia `el.disabled` só na montagem: alternar `disabled` por JS depois não mudava o botão MUI (classe `Mui-disabled` e `pointer-events: none` ficavam) · o lift agora observa o atributo `disabled` no nó (MutationObserver).
+- 2026-11-19 · MUI/erro de campo · Classes postas à mão (`Mui-error`) no TextField somem na próxima re-renderização do React (ex.: ao perder o foco) · marcar `aria-invalid` no `<input>` e estilizar por CSS (`:has(input[aria-invalid="true"])` em `frontend/input.css`).
 
 ## Promovidas (histórico curto)
 > Rastro de para onde foram as lições podadas — só o link, sem reexplicar. Poda este histórico também.

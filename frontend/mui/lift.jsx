@@ -38,6 +38,9 @@ function LiftIcon({ el, Icon }) {
 /* ---------- Botões ---------- */
 function LiftButton({ el }) {
   const isLink = el.tagName === "A";
+  // `disabled` pode mudar depois da montagem (ex.: o cadastro habilita "Criar conta" só com tudo válido):
+  // observa o atributo no nó renderizado e reflete no estado do MUI (classe Mui-disabled, foco, cliques).
+  const [disabled, setDisabled] = useState(el.disabled);
   const cls = el.classList;
   const variant = cls.contains("btn-primary") ? "contained" : cls.contains("btn-ghost") ? "text" : "outlined";
   const color = cls.contains("text-danger") ? "error" : cls.contains("btn-ghost") ? "inherit" : "primary";
@@ -45,8 +48,13 @@ function LiftButton({ el }) {
   const iconOnly = el.textContent.trim() === "" && el.querySelector("[data-lucide]");
   const common = {
     className: layoutClass(el, /^(w-full|-ml-.*|p-\d.*)$/),
-    ref: once(el, (node) => copyAttrs(el, node, [])),
-    disabled: isLink ? undefined : el.disabled,
+    ref: once(el, (node) => {
+      copyAttrs(el, node, []);
+      if (!isLink) {
+        new MutationObserver(() => setDisabled(node.disabled)).observe(node, { attributes: true, attributeFilter: ["disabled"] });
+      }
+    }),
+    disabled: isLink ? undefined : disabled,
   };
   if (iconOnly) {
     return (
