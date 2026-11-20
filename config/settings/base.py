@@ -128,6 +128,24 @@ THREADS_GRAPH_VERSION = os.environ.get("THREADS_GRAPH_VERSION", "v1.0")
 THREADS_REFRESH_WINDOW_DAYS = int(os.environ.get("THREADS_REFRESH_WINDOW_DAYS", "30"))
 THREADS_CONTAINER_WAIT_SECONDS = int(os.environ.get("THREADS_CONTAINER_WAIT_SECONDS", "20"))
 
+# --- E-mail (spec 0016, ADR-0017) -------------------------------------------------------------------
+# SMTP nativo do Django pelo .env. Sem EMAIL_HOST, os e-mails viram arquivos em var/emails/ (fora do git) —
+# nunca o console, para links com token não irem para os logs.
+EMAIL_HOST = os.environ.get("EMAIL_HOST", "")
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "true").lower() in ("1", "true", "yes")
+EMAIL_TIMEOUT = int(os.environ.get("EMAIL_TIMEOUT", "15"))
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "Social Hub <nao-responda@localhost>")
+if EMAIL_HOST:
+    EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+else:
+    EMAIL_BACKEND = "django.core.mail.backends.filebased.EmailBackend"
+    EMAIL_FILE_PATH = BASE_DIR / "var" / "emails"
+# Envio dos e-mails de conta numa thread após o commit (o tempo de resposta não revela se a conta existe).
+ACCOUNTS_EMAIL_ASYNC = True
+
 # Imagem no Threads (spec 0005): a Meta baixa a imagem de uma URL pública temporária e assinada do Hub.
 PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL", "")  # HTTPS; vazio = origem do THREADS_REDIRECT_URI
 THREADS_IMAGE_URL_TTL_SECONDS = int(os.environ.get("THREADS_IMAGE_URL_TTL_SECONDS", "1800"))
@@ -188,8 +206,13 @@ LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
     "formatters": {"simple": {"format": "%(asctime)s %(levelname)s %(name)s: %(message)s"}},
+    # Sem query string no log de acesso do runserver: o link de redefinição leva o token (spec 0016).
+    "filters": {"strip_query": {"()": "apps.core.log_filters.StripQueryString"}},
     "handlers": {"console": {"class": "logging.StreamHandler", "formatter": "simple"}},
     "root": {"handlers": ["console"], "level": os.environ.get("DJANGO_LOG_LEVEL", "INFO")},
     # urllib3 em DEBUG registra URLs completas; mantém em WARNING para não vazar nada.
-    "loggers": {"urllib3": {"level": "WARNING"}},
+    "loggers": {
+        "urllib3": {"level": "WARNING"},
+        "django.server": {"handlers": ["console"], "filters": ["strip_query"], "level": "INFO", "propagate": False},
+    },
 }

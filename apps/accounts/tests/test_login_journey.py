@@ -200,7 +200,8 @@ class LoginJourneyTests(TestCase):
     def test_AC_9_google_and_forgot_password_without_action(self):
         response = self.client.get(LOGIN_URL)
         self.assertContains(response, '<button type="button" data-google-signin')
-        self.assertContains(response, '<button type="button" data-forgot-password')
+        # Spec 0016: "Esqueci minha senha" passou a levar à recuperação de senha.
+        self.assertContains(response, f'href="{reverse("accounts:password_reset")}" data-forgot-password')
         self.assertContains(response, "Esqueci minha senha")
 
     # AC-10

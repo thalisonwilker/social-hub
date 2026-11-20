@@ -43,3 +43,42 @@ class LoginAttempt(models.Model):
 
     def __str__(self):
         return f"{self.created_at:%Y-%m-%d %H:%M} {'ok' if self.succeeded else 'falha'}"
+
+
+class PasswordResetRequest(models.Model):
+    """Pedido de recuperação de senha (spec 0016): idempotência pela chave e base dos limites.
+
+    Registrado mesmo quando o e-mail não tem conta; guarda só o hash do e-mail.
+    """
+
+    key = models.UUIDField(unique=True)
+    email_hash = models.CharField(max_length=64, db_index=True)
+    ip = models.GenericIPAddressField(null=True, blank=True, db_index=True)
+    sent = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = "pedido de recuperação de senha"
+        verbose_name_plural = "pedidos de recuperação de senha"
+
+
+class PasswordResetToken(models.Model):
+    """Token de redefinição (spec 0016, ADR-0017): só o SHA-256 do token vai para o banco.
+
+    Válido ⇔ não usado, não invalidado e não expirado; no máximo um válido por usuário.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="password_reset_tokens"
+    )
+    token_hash = models.CharField(max_length=64, unique=True)
+    # HMAC do hash da senha no momento da emissão: qualquer troca de senha (por qualquer caminho) invalida o token.
+    password_fingerprint = models.CharField(max_length=64)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    expires_at = models.DateTimeField()
+    used_at = models.DateTimeField(null=True, blank=True)
+    invalidated_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "token de redefinição de senha"
+        verbose_name_plural = "tokens de redefinição de senha"

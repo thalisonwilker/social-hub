@@ -86,6 +86,8 @@ e erro, o botão do Google e o link "Esqueci minha senha" (os dois sem ação po
 - **Então** o botão vira "Entrando…" com indicador de carregamento, fica desabilitado e os campos ficam somente leitura (um único envio); ao voltar pelo histórico do navegador a tela sai do carregamento; erros do servidor (400/401/409/429) aparecem num alerta de erro acima do formulário; o aviso de sucesso do cadastro (spec 0013) continua aparecendo
 
 ### AC-9: Google e "Esqueci minha senha" sem ação
+> **Parcialmente substituído pela spec 0016:** "Esqueci minha senha" passou a levar a `/recuperar-senha/`; o Google continua sem ação.
+
 - **Dado** a tela de login
 - **Quando** a pessoa clica em "Continuar com Google" ou em "Esqueci minha senha"
 - **Então** nada acontece (sem navegação nem envio); os dois mostram a dica "Em breve"

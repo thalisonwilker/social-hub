@@ -87,6 +87,7 @@ Decisões relevantes:
 
 - **Login obrigatório global** via `LoginRequiredMiddleware`: toda nova view é protegida por padrão; só quem usa `@login_not_required` (login, cadastro em `/cadastro/`, `/termos/`, `/privacidade/` e `/healthz/`) é pública.
 - **Cadastro público** (spec 0013): nome, sobrenome, e-mail e senha forte (≥ 8, maiúscula, número e caractere especial); o e-mail é gravado em minúsculas como `username` e o login aceita o e-mail sem diferenciar maiúsculas.
+- **Recuperação de senha** (spec 0016, ADR-0017): `/recuperar-senha/` envia um link de uso único (30 min) por e-mail; a resposta pública é a mesma com ou sem conta; 5 pedidos por IP em 15 min e 1 e-mail por conta por hora. Configure o SMTP no `.env` (`EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `EMAIL_USE_TLS`, `DEFAULT_FROM_EMAIL`); sem ele, os e-mails são gravados em `var/emails/`. Os links usam `PUBLIC_BASE_URL`.
 - **Login** (spec 0014, ADR-0016): só por e-mail (contas antigas, como o `admin`, entram pelo e-mail delas, inclusive no `/admin/`); mensagem genérica "E-mail ou senha inválidos" (401); 5 falhas por e-mail ou 20 por IP em 15 min → 429; cada tentativa leva uma chave de idempotência (UUID) e repetições não criam sessão. Envios repetidos criam um só usuário (chave de idempotência no banco).
 - **Tema** por variáveis CSS (`frontend/input.css`); o modo escuro só troca valores, e a escolha fica em `localStorage`.
 - **Navegação** em um único lugar: `apps/core/context_processors.py`.

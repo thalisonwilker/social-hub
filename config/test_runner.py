@@ -11,3 +11,4 @@ class InlinePublishRunner(DiscoverRunner):
     def setup_test_environment(self, **kwargs):
         super().setup_test_environment(**kwargs)
         settings.PUBLISH_MODE = "inline"
+        settings.ACCOUNTS_EMAIL_ASYNC = False  # e-mails de conta (spec 0016) síncronos no teste

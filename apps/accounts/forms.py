@@ -185,3 +185,73 @@ class SignupForm(forms.Form):
             first_name=data["first_name"],
             last_name=data["last_name"],
         )
+
+
+class PasswordResetRequestForm(forms.Form):
+    """Pedido de recuperação (spec 0016): só o e-mail, validado e normalizado."""
+
+    email = forms.EmailField(
+        label="E-mail",
+        max_length=254,
+        error_messages={"required": MSG_EMAIL_INVALID, "invalid": MSG_EMAIL_INVALID, "max_length": MSG_EMAIL_INVALID},
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["email"].widget.attrs.update(
+            {"class": INPUT_CLASS, "autofocus": True, "autocomplete": "email", "inputmode": "email",
+             "aria-describedby": "email-error"}
+        )
+
+    def full_clean(self):
+        super().full_clean()
+        for name in self.errors:
+            if name in self.fields:
+                self.fields[name].widget.attrs["aria-invalid"] = "true"
+
+    def clean_email(self):
+        return normalize_email(self.cleaned_data.get("email"))
+
+
+class SetNewPasswordForm(forms.Form):
+    """Nova senha (spec 0016): mesma política e mensagens do cadastro (spec 0013)."""
+
+    password1 = forms.CharField(
+        label="Nova senha", strip=False, widget=forms.PasswordInput,
+        error_messages={"required": MSG_PASSWORD_REQUIRED},
+    )
+    password2 = forms.CharField(
+        label="Confirmar senha", strip=False, widget=forms.PasswordInput,
+        error_messages={"required": MSG_PASSWORD_MISMATCH},
+    )
+
+    def __init__(self, user, *args, **kwargs):
+        self.user = user
+        super().__init__(*args, **kwargs)
+        for name in ("password1", "password2"):
+            self.fields[name].widget.attrs.update(
+                {"class": INPUT_CLASS, "autocomplete": "new-password", "aria-describedby": f"{name}-error"}
+            )
+        self.fields["password1"].widget.attrs["autofocus"] = True
+
+    def full_clean(self):
+        super().full_clean()
+        for name in self.errors:
+            if name in self.fields:
+                self.fields[name].widget.attrs["aria-invalid"] = "true"
+
+    def clean_password2(self):
+        password1 = self.cleaned_data.get("password1")
+        password2 = self.cleaned_data.get("password2")
+        if password1 and password2 != password1:
+            raise ValidationError(MSG_PASSWORD_MISMATCH, code="password_mismatch")
+        return password2
+
+    def _post_clean(self):
+        super()._post_clean()
+        password = self.cleaned_data.get("password1")
+        if password:
+            try:
+                password_validation.validate_password(password, self.user, _signup_password_validators())
+            except ValidationError as error:
+                self.add_error("password1", error)

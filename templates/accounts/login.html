@@ -71,9 +71,9 @@
             </button>
           </div>
           <p id="password-error" data-error-for="password" class="mt-1 text-xs text-danger">{% for e in form.password.errors %}{{ e }}{% endfor %}</p>
-          {# AC-9: sem ação por enquanto #}
+          {# Spec 0016: leva à recuperação de senha #}
           <div class="mt-2 text-right">
-            <button type="button" data-forgot-password class="text-sm text-accent hover:underline" title="Em breve">Esqueci minha senha</button>
+            <a href="{% url 'accounts:password_reset' %}" data-forgot-password class="text-sm text-accent hover:underline">Esqueci minha senha</a>
           </div>
         </div>
 

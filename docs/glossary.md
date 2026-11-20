@@ -24,6 +24,10 @@ alwaysApply: false
 | Chave da instância | Credencial da instância da Evolution que autoriza enviar pelo número; guardada criptografada, nunca exibida. | Chave global da Evolution (poder total, não usada pelo Hub) | Social |
 | Chave de idempotência do cadastro | Valor assinado (2 h) que vai oculto no formulário de Cadastro; gravado com o usuário criado, faz envios repetidos criarem no máximo um usuário. | Claim atômico da publicação | Contas de usuário |
 | Chave de idempotência do login | UUID gerado pela página de login a cada renderização; repetições com a mesma chave repetem o resultado sem criar sessão. | Chave de idempotência do cadastro (assinada pelo servidor) | Contas de usuário |
+| Aviso de senha alterada | E-mail enviado à conta depois que a senha é redefinida, sem link nem senha. | Link de redefinição | Contas de usuário |
+| Pedido de recuperação | Solicitação em `/recuperar-senha/` (e-mail + chave de idempotência), registrada mesmo sem conta; a resposta pública é sempre a mesma. | Link de redefinição | Contas de usuário |
+| Link de redefinição | URL enviada por e-mail com um token de uso único que vale 30 min; ao abrir, o token sai da URL. | Pedido de recuperação | Contas de usuário |
+| Token de redefinição | Segredo aleatório (256 bits) do link; o banco guarda só o SHA-256; deixa de valer se usado, substituído, expirado ou se a senha mudar. | Token de Página | Contas de usuário |
 | Conectar | Criar/atualizar uma Conta social a partir de uma Página selecionada. | Fazer login no Social Hub | Social |
 | `config_id` | Identificador da configuração de login (permissões e tipo de token) na Meta. | `app_id` | Social |
 | Conta de WhatsApp | Conta social cujo `external_id` é o nome de uma instância da Evolution já pareada; destino do Status. | Perfil/Página (têm OAuth e link) | Social |

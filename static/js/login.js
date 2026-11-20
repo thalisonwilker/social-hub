@@ -71,8 +71,8 @@
   // Voltar pelo histórico (bfcache) não pode deixar a tela presa em "Entrando…".
   window.addEventListener("pageshow", function (event) { if (event.persisted) setLoading(false); });
 
-  // AC-9: Google e "Esqueci minha senha" ainda não fazem nada.
-  document.querySelectorAll("[data-google-signin], [data-forgot-password]").forEach(function (el) {
+  // AC-9: o Google ainda não faz nada ("Esqueci minha senha" leva à recuperação, spec 0016).
+  document.querySelectorAll("[data-google-signin]").forEach(function (el) {
     el.addEventListener("click", function (event) { event.preventDefault(); });
   });
 })();

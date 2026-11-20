@@ -19,9 +19,17 @@ from django.views.decorators.debug import sensitive_post_parameters
 from django.views import View
 from django.views.generic import TemplateView
 
-from . import idempotency, login_throttle
-from .forms import MSG_EMAIL_TAKEN, LoginForm, SignupForm, StyledPasswordChangeForm
-from .models import LoginAttempt, SignupIdempotencyKey
+from . import emails, idempotency, login_throttle, password_reset
+from .backends import find_user_by_email
+from .forms import (
+    MSG_EMAIL_TAKEN,
+    LoginForm,
+    PasswordResetRequestForm,
+    SetNewPasswordForm,
+    SignupForm,
+    StyledPasswordChangeForm,
+)
+from .models import LoginAttempt, PasswordResetRequest, SignupIdempotencyKey
 
 SIGNUP_SUCCESS_MESSAGE = "Sua conta foi criada com sucesso! Faça login para continuar."
 SIGNUP_EXPIRED_MESSAGE = "O formulário expirou. Revise os dados e envie novamente."
@@ -209,3 +217,141 @@ class SignupView(View):
     def _render(self, request, form, notice=None):
         context = {"form": form, "chave_idempotencia": idempotency.issue_key(), "notice": notice}
         return render(request, self.template_name, context)
+
+
+# --- Recuperação de senha (spec 0016, ADR-0017) ----------------------------------------------------
+
+RESET_GENERIC_MESSAGE = "Se o e-mail estiver cadastrado, você receberá instruções para redefinir sua senha."
+RESET_BAD_KEY_MESSAGE = "Não foi possível processar a solicitação. Recarregue a página e tente novamente."
+RESET_THROTTLED_MESSAGE = "Muitas solicitações. Tente novamente em alguns minutos."
+RESET_DONE_MESSAGE = "Sua senha foi redefinida. Faça login com a nova senha."
+
+reset_logger = logging.getLogger("apps.accounts.password_reset")
+
+
+def _reset_log(event, ip, email_hash=None):
+    """Só evento, IP e prefixo do hash do e-mail — nunca token, link, senha ou e-mail (AC-14)."""
+    reset_logger.info("recuperacao %s ip=%s email=%s", event, ip, email_hash[:12] if email_hash else "-")
+
+
+@method_decorator([login_not_required, csrf_protect, never_cache], name="dispatch")
+class PasswordResetRequestView(View):
+    """Pedido de recuperação. Ordem conforme a matriz da spec: campos → chave → repetição → IP → conta."""
+
+    template_name = "accounts/password_reset_request.html"
+
+    def get(self, request):
+        return self._render(request, PasswordResetRequestForm())
+
+    def post(self, request):
+        password_reset.purge_old()
+        ip = login_throttle.client_ip(request)
+        form = PasswordResetRequestForm(request.POST)
+        if not form.is_valid():  # AC-2
+            _reset_log("campos_invalidos", ip)
+            return self._render(request, form, status=400)
+
+        key = login_throttle.parse_key(request.POST.get("chave_idempotencia"))
+        if key is None:
+            _reset_log("chave_invalida", ip)
+            return self._render(request, form, error=RESET_BAD_KEY_MESSAGE, status=400)
+
+        email = form.cleaned_data["email"]
+        email_hash = login_throttle.hash_email(email)
+        if PasswordResetRequest.objects.filter(key=key).exists():  # AC-5
+            _reset_log("repeticao", ip, email_hash)
+            return self._generic(request)
+
+        wait = password_reset.ip_retry_after(ip)
+        if wait is not None:  # AC-6 (IP)
+            _reset_log("bloqueado_ip", ip, email_hash)
+            response = self._render(request, form, error=RESET_THROTTLED_MESSAGE, status=429)
+            response["Retry-After"] = str(wait)
+            return response
+
+        user = find_user_by_email(email)
+        try:
+            with transaction.atomic():
+                record = PasswordResetRequest.objects.create(key=key, email_hash=email_hash, ip=ip)
+                token = None
+                if user is not None and user.is_active and not password_reset.account_limited(user):
+                    token = password_reset.issue_token(user)
+                    record.sent = True
+                    record.save(update_fields=["sent"])
+        except IntegrityError:  # corrida com a mesma chave (AC-5)
+            return self._generic(request)
+
+        if token:  # AC-4: envio fora da requisição, depois do commit
+            emails.send_reset_link(request, user, token)
+        _reset_log("aceito", ip, email_hash)  # mesmo log com ou sem conta (AC-3)
+        return self._generic(request)
+
+    def _generic(self, request):
+        messages.success(request, RESET_GENERIC_MESSAGE)
+        return redirect("accounts:password_reset")
+
+    def _render(self, request, form, error=None, status=200):
+        context = {"form": form, "error": error, "chave_idempotencia": str(uuid.uuid4())}
+        return render(request, self.template_name, context, status=status)
+
+
+@method_decorator(
+    [login_not_required, csrf_protect, never_cache, sensitive_post_parameters("password1", "password2")],
+    name="dispatch",
+)
+class PasswordResetConfirmView(View):
+    """Abrir o link e redefinir a senha (AC-7 a AC-12)."""
+
+    template_name = "accounts/password_reset_confirm.html"
+    invalid_template = "accounts/password_reset_invalid.html"
+
+    def get(self, request):
+        raw = request.GET.get("token")
+        if raw is not None:  # AC-7: valida, guarda só a referência e tira o token da URL
+            found = password_reset.find_valid_token(raw)
+            if found is None:
+                request.session.pop(password_reset.SESSION_KEY, None)
+                return self._invalid(request)
+            request.session[password_reset.SESSION_KEY] = found.pk
+            _reset_log("link_aberto", login_throttle.client_ip(request))
+            response = redirect("accounts:password_reset_confirm")
+            response["Referrer-Policy"] = "no-referrer"
+            return response
+        found = self._token(request)
+        if found is None:
+            return self._invalid(request)
+        return self._render(request, SetNewPasswordForm(found.user))
+
+    def post(self, request):
+        found = self._token(request)
+        if found is None:  # AC-8
+            return self._invalid(request)
+        form = SetNewPasswordForm(found.user, request.POST)
+        if not form.is_valid():  # AC-9: não consome o token
+            return self._render(request, form, status=400)
+        user = found.user
+        with transaction.atomic():
+            if not password_reset.consume(found):  # AC-10: outro envio venceu
+                return self._invalid(request)
+            user.set_password(form.cleaned_data["password1"])
+            user.save(update_fields=["password"])
+            password_reset.invalidate_all(user)
+        password_reset.revoke_sessions(user)  # AC-11 (inclui a sessão deste navegador)
+        request.session.flush()
+        emails.send_password_changed(user)  # AC-12
+        _reset_log("senha_redefinida", login_throttle.client_ip(request))
+        messages.success(request, RESET_DONE_MESSAGE)
+        return redirect("accounts:login")
+
+    def _token(self, request):
+        return password_reset.get_valid_token(request.session.get(password_reset.SESSION_KEY))
+
+    def _invalid(self, request):
+        response = render(request, self.invalid_template, status=400)
+        response["Referrer-Policy"] = "no-referrer"
+        return response
+
+    def _render(self, request, form, status=200):
+        # Sem `no-referrer` aqui: a URL já não tem o token, e `no-referrer` faz o navegador mandar
+        # `Origin: null` no POST, que o CSRF do Django recusa. Vale o `same-origin` padrão.
+        return render(request, self.template_name, {"form": form}, status=status)

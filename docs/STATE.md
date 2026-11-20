@@ -14,6 +14,7 @@ alwaysApply: true
 
 ## Em andamento / próximo passo
 > O que está aberto agora e a **próxima ação concreta** (não "continuar a feature" — diga o passo).
+- **0016 recuperação de senha**: implementada (952 testes verdes, nada commitado; migração `accounts.0004`). UAT no navegador feito com e-mail em arquivo (`var/emails/`): pedido → link → nova senha → login com aviso; reuso do link recusado. Próximo: **configurar o SMTP real no `.env`** (`EMAIL_HOST`…`DEFAULT_FROM_EMAIL`) e conferir a entrega e o `PUBLIC_BASE_URL` (hoje aponta para um túnel antigo); depois commitar. ADR-0017.
 - **0015 revisão do cadastro**: implementada (925 testes verdes, nada commitado; migração `accounts.0003_unique_lower_email` — índice único em `lower(email)`). Botão "Registrar" com carregamento e envio único, mensagem final nova, nomes com acento decomposto, e-mail do navegador igual ao do Django, erros acessíveis. UAT no navegador feito. Próximo: commitar.
 - **0014 jornada de login**: implementada (916 testes verdes, nada commitado; migração `accounts.0002_loginattempt`; `npm run build:css` refeito). UAT no navegador feito: validação antes do envio, 401 genérico, login certo → seleção de perfil, carregamento "Entrando…" com envio único. Próximo: **seu UAT** (bloqueio 429 com 5 erros, tema claro, celular) e commitar. O `admin` agora entra com o **e-mail** (`DJANGO_SUPERUSER_EMAIL`), inclusive em `/admin/`. ADR-0016.
 - **0013 cadastro de usuário**: implementada (885 testes verdes, nada commitado; migração `accounts.0001_initial`; `npm run build` refeito). UAT no navegador feito: validação campo a campo, botão só habilita com tudo válido, cadastro → login com aviso, login com o e-mail em outra caixa. Próximo: **seu UAT** (tema claro, celular, duplo clique em Criar conta) e commitar. Login agora é por e-mail (`EmailOrUsernameBackend`; `admin` continua pelo username). Texto real de Termos/Política e limite de tentativas no cadastro/login ficam para depois.
@@ -34,6 +35,7 @@ alwaysApply: true
 
 ## Decisões recentes
 > Resumo cronológico. Se for difícil de reverter, vire um ADR e linke aqui.
+- 2026-11-20: E-mail pelo SMTP nativo do Django (arquivo em `var/emails/` sem SMTP) e recuperação de senha com token de uso único em hash, limites no banco e link sem token nos logs — [ADR-0017](architecture/adr/0017-envio-de-e-mail-smtp-e-recuperacao-de-senha-com-token-em-hash.md)
 - 2026-11-19: Limite de tentativas e idempotência do login no banco (`LoginAttempt`, e-mail como HMAC, `REMOTE_ADDR`, retenção 24 h); login só por e-mail — [ADR-0016](architecture/adr/0016-limitacao-de-tentativas-e-idempotencia-do-login-no-banco.md)
 - 2026-11-19: Cadastro público com `username` = e-mail em minúsculas e login por e-mail sem diferenciar maiúsculas; trava de idempotência no banco (chave assinada de 2 h, única, gravada na transação do usuário) porque há 2 workers e nenhum cache compartilhado — spec 0013.
 - 2026-11-17: tokens de Página criptografados com Fernet, chave no `.env` — [ADR-0002](architecture/adr/0002-tokens-de-pagina-criptografados-com-fernet.md)

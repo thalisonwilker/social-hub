@@ -8,6 +8,8 @@ urlpatterns = [
     path("entrar/", views.LoginView.as_view(), name="login"),
     path("sair/", views.LogoutView.as_view(), name="logout"),
     path("cadastro/", views.SignupView.as_view(), name="signup"),
+    path("recuperar-senha/", views.PasswordResetRequestView.as_view(), name="password_reset"),
+    path("redefinir-senha/", views.PasswordResetConfirmView.as_view(), name="password_reset_confirm"),
     path("termos/", views.LegalPageView.as_view(template_name="accounts/terms.html"), name="terms"),
     path(
         "privacidade/",
