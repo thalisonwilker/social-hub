@@ -65,6 +65,8 @@ entrar com o e-mail. A tela mostra um botão do Google, **sem ação** por enqua
 - **Então** cria um usuário ativo, não staff, com `email` e `username` = `fulano@exemplo.com`, `first_name`/`last_name` aparados, senha com hash; **não** inicia sessão; redireciona para o login, que mostra "Sua conta foi criada. Entre com seu e-mail e senha."
 
 ### AC-8: Login por e-mail sem diferenciar maiúsculas
+> **Parcialmente substituído pela spec 0014 (AC-4):** contas antigas passam a entrar pelo e-mail; o username sem @ não autentica mais.
+
 - **Dado** o usuário criado no AC-7
 - **Quando** entra com `FULANO@exemplo.com` e a senha
 - **Então** o login conclui; usuários antigos (ex.: `admin`) continuam entrando pelo username como antes; o rótulo do campo passa a ser "E-mail"

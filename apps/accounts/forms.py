@@ -1,6 +1,6 @@
 from django import forms
 from django.contrib.auth import get_user_model, password_validation
-from django.contrib.auth.forms import AuthenticationForm, PasswordChangeForm
+from django.contrib.auth.forms import PasswordChangeForm
 from django.core.exceptions import ValidationError
 from django.db.models import Q
 
@@ -15,26 +15,47 @@ INPUT_CLASS = "input"
 MSG_EMAIL_INVALID = "Informe um e-mail válido."
 MSG_EMAIL_TAKEN = "Este e-mail já está cadastrado."
 MSG_PASSWORD_REQUIRED = "Informe uma senha."
+MSG_LOGIN_PASSWORD_REQUIRED = "Informe sua senha."
 MSG_PASSWORD_MISMATCH = "As senhas não coincidem."
 MSG_TERMS_REQUIRED = "Você precisa aceitar os Termos de Uso e a Política de Privacidade."
 
 
-class LoginForm(AuthenticationForm):
-    error_messages = {
-        **AuthenticationForm.error_messages,
-        "invalid_login": "E-mail ou senha incorretos.",
-    }
+class LoginForm(forms.Form):
+    """Campos do login (spec 0014): só valida e normaliza; a autenticação fica na view."""
+
+    email = forms.EmailField(
+        label="E-mail",
+        max_length=254,
+        error_messages={
+            "required": MSG_EMAIL_INVALID,
+            "invalid": MSG_EMAIL_INVALID,
+            "max_length": MSG_EMAIL_INVALID,
+        },
+    )
+    password = forms.CharField(
+        label="Senha",
+        strip=False,
+        widget=forms.PasswordInput,
+        error_messages={"required": MSG_LOGIN_PASSWORD_REQUIRED},
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Spec 0013, AC-8: entra-se pelo e-mail (usuários antigos seguem usando o username).
-        self.fields["username"].label = "E-mail"
-        self.fields["username"].widget.attrs.update(
-            {"class": INPUT_CLASS, "autofocus": True, "autocomplete": "username"}
+        self.fields["email"].widget.attrs.update(
+            {
+                "class": INPUT_CLASS,
+                "autofocus": True,
+                "autocomplete": "username",
+                "inputmode": "email",
+                "aria-describedby": "email-error",
+            }
         )
         self.fields["password"].widget.attrs.update(
-            {"class": INPUT_CLASS, "autocomplete": "current-password"}
+            {"class": INPUT_CLASS, "autocomplete": "current-password", "aria-describedby": "password-error"}
         )
+
+    def clean_email(self):
+        return normalize_email(self.cleaned_data.get("email"))
 
 
 class StyledPasswordChangeForm(PasswordChangeForm):

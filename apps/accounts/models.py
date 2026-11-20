@@ -22,3 +22,24 @@ class SignupIdempotencyKey(models.Model):
 
     def __str__(self):
         return self.key
+
+
+class LoginAttempt(models.Model):
+    """Tentativa de login com credenciais (spec 0014, ADR-0016).
+
+    Serve à limitação de tentativas (falhas por e-mail e por IP numa janela) e à idempotência
+    (a chave é única; repetições leem o resultado). Não guarda senha, e-mail em claro nem sessão.
+    """
+
+    key = models.UUIDField(unique=True)
+    email_hash = models.CharField(max_length=64, db_index=True)
+    ip = models.GenericIPAddressField(null=True, blank=True, db_index=True)
+    succeeded = models.BooleanField()
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = "tentativa de login"
+        verbose_name_plural = "tentativas de login"
+
+    def __str__(self):
+        return f"{self.created_at:%Y-%m-%d %H:%M} {'ok' if self.succeeded else 'falha'}"

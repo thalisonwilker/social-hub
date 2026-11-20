@@ -14,6 +14,7 @@ alwaysApply: true
 
 ## Em andamento / próximo passo
 > O que está aberto agora e a **próxima ação concreta** (não "continuar a feature" — diga o passo).
+- **0014 jornada de login**: implementada (916 testes verdes, nada commitado; migração `accounts.0002_loginattempt`; `npm run build:css` refeito). UAT no navegador feito: validação antes do envio, 401 genérico, login certo → seleção de perfil, carregamento "Entrando…" com envio único. Próximo: **seu UAT** (bloqueio 429 com 5 erros, tema claro, celular) e commitar. O `admin` agora entra com o **e-mail** (`DJANGO_SUPERUSER_EMAIL`), inclusive em `/admin/`. ADR-0016.
 - **0013 cadastro de usuário**: implementada (885 testes verdes, nada commitado; migração `accounts.0001_initial`; `npm run build` refeito). UAT no navegador feito: validação campo a campo, botão só habilita com tudo válido, cadastro → login com aviso, login com o e-mail em outra caixa. Próximo: **seu UAT** (tema claro, celular, duplo clique em Criar conta) e commitar. Login agora é por e-mail (`EmailOrUsernameBackend`; `admin` continua pelo username). Texto real de Termos/Política e limite de tentativas no cadastro/login ficam para depois.
 - **0012 interface MUI**: implementada (849 testes verdes, nada commitado). Bundle `frontend/mui/*` → `static/dist/js/mui.js` (`npm run build`); ADR-0015. Próximo: **UAT visual** nas telas restantes (detalhe/lista de publicações, WhatsApp, seleção de Páginas, Minha conta) e em celular; `<input type=file>` e `<details>` ficam nativos. Telas já conferidas no navegador: login, seleção, wizard, dashboard, contas, nova publicação (claro/escuro) e diálogo de confirmação.
 - **0011 perfis + wizard + login novo**: implementada (841 testes verdes, nada commitado; CSS rebuild com `npm run build`). Próximo: **UAT visual** (login, seleção, wizard com OAuth real do Facebook/Threads voltando ao dashboard) e commitar. Contas existentes migram para o perfil "Principal". Twitter/X e TikTok são só ícones "Em breve"; renomear/excluir perfil ficou fora do escopo.
@@ -32,6 +33,7 @@ alwaysApply: true
 
 ## Decisões recentes
 > Resumo cronológico. Se for difícil de reverter, vire um ADR e linke aqui.
+- 2026-11-19: Limite de tentativas e idempotência do login no banco (`LoginAttempt`, e-mail como HMAC, `REMOTE_ADDR`, retenção 24 h); login só por e-mail — [ADR-0016](architecture/adr/0016-limitacao-de-tentativas-e-idempotencia-do-login-no-banco.md)
 - 2026-11-19: Cadastro público com `username` = e-mail em minúsculas e login por e-mail sem diferenciar maiúsculas; trava de idempotência no banco (chave assinada de 2 h, única, gravada na transação do usuário) porque há 2 workers e nenhum cache compartilhado — spec 0013.
 - 2026-11-17: tokens de Página criptografados com Fernet, chave no `.env` — [ADR-0002](architecture/adr/0002-tokens-de-pagina-criptografados-com-fernet.md)
 - 2026-11-17: OAuth com `config_id` + cliente Graph próprio no app `social`; Graph API fixada em v27.0 — [ADR-0003](architecture/adr/0003-integracao-meta-oauth-config-id-e-cliente-graph-proprio.md)

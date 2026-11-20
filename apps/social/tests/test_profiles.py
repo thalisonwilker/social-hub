@@ -10,6 +10,7 @@ from apps.social.services import profiles
 from apps.social.services.threads import ThreadsClient
 
 from .helpers import VALID_META_SETTINGS
+from apps.accounts.tests.helpers import login_data
 
 User = get_user_model()
 
@@ -25,7 +26,7 @@ def make_account(user, profile=None, external_id="1", platform="facebook_page", 
 class ProfilesTests(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.user = User.objects.create_user("alice", password="pw12345!")
+        cls.user = User.objects.create_user("alice", email="alice@exemplo.com", password="pw12345!")
         cls.other = User.objects.create_user("bob", password="pw12345!")
 
     def setUp(self):
@@ -33,7 +34,7 @@ class ProfilesTests(TestCase):
 
     def test_AC_1_login_goes_to_profile_select(self):
         self.client.logout()
-        response = self.client.post(reverse("accounts:login"), {"username": "alice", "password": "pw12345!"})
+        response = self.client.post(reverse("accounts:login"), login_data("alice@exemplo.com", "pw12345!"))
         self.assertRedirects(response, reverse("social:profile_select"), fetch_redirect_response=False)
         self.assertNotIn(profiles.ACTIVE_KEY, self.client.session)
 
@@ -230,9 +231,9 @@ class ProfilesTests(TestCase):
 
     def test_AC_12_invalid_credentials_show_error(self):
         self.client.logout()
-        response = self.client.post(reverse("accounts:login"), {"username": "alice", "password": "errada"})
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'role="alert"')
+        response = self.client.post(reverse("accounts:login"), login_data("alice@exemplo.com", "errada"))
+        self.assertEqual(response.status_code, 401)  # spec 0014, AC-2
+        self.assertContains(response, 'role="alert"', status_code=401)
 
     def test_profile_pages_require_login(self):
         self.client.logout()

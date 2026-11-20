@@ -2,11 +2,13 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
+from apps.accounts.tests.helpers import login_data
+
 
 class SmokeTests(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.user = get_user_model().objects.create_user("tester", password="s3nha-forte-123")
+        cls.user = get_user_model().objects.create_user("tester", email="tester@exemplo.com", password="s3nha-forte-123")
 
     def test_health_is_public(self):
         response = self.client.get(reverse("core:health"))
@@ -22,13 +24,13 @@ class SmokeTests(TestCase):
         self.assertEqual(self.client.get(reverse("accounts:login")).status_code, 200)
 
     def test_login_and_pages_render(self):
-        self.assertTrue(self.client.login(username="tester", password="s3nha-forte-123"))
+        self.assertTrue(self.client.login(username="tester@exemplo.com", password="s3nha-forte-123"))
         for name in ("dashboard:index", "social:accounts", "social:posts", "social:calendar", "accounts:profile", "accounts:password_change"):
             self.assertEqual(self.client.get(reverse(name)).status_code, 200, name)
 
     def test_login_flow_redirects_to_profile_select(self):
         response = self.client.post(
-            reverse("accounts:login"), {"username": "tester", "password": "s3nha-forte-123"}
+            reverse("accounts:login"), login_data("tester@exemplo.com", "s3nha-forte-123")
         )
         self.assertRedirects(response, reverse("social:profile_select"))  # spec 0011, AC-1
 

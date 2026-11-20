@@ -91,8 +91,8 @@ DATABASES = {
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# Login por e-mail sem diferenciar maiúsculas; usernames antigos continuam valendo (spec 0013).
-AUTHENTICATION_BACKENDS = ["apps.accounts.backends.EmailOrUsernameBackend"]
+# Login só por e-mail, sem diferenciar maiúsculas (specs 0013 e 0014).
+AUTHENTICATION_BACKENDS = ["apps.accounts.backends.EmailBackend"]
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
