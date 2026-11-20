@@ -132,6 +132,13 @@ class SignupForm(forms.Form):
         self.fields["email"].widget.attrs["inputmode"] = "email"
         self.fields["accept_terms"].widget.attrs["aria-describedby"] = "accept_terms-error"
 
+    def full_clean(self):
+        super().full_clean()
+        # Campo com erro do servidor fica marcado como inválido também sem JavaScript (spec 0015, AC-2).
+        for name in self.errors:
+            if name in self.fields:
+                self.fields[name].widget.attrs["aria-invalid"] = "true"
+
     def clean_first_name(self):
         return validate_person_name(self.cleaned_data.get("first_name"), "Informe seu nome.")
 

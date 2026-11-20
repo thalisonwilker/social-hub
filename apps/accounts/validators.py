@@ -4,6 +4,7 @@ As mesmas regras existem no navegador (`static/js/signup.js`); o servidor é que
 """
 
 import re
+import unicodedata
 
 from django.core.exceptions import ValidationError
 
@@ -29,7 +30,8 @@ def validate_person_name(value: str, empty_message: str) -> str:
 
     `empty_message` é a mensagem para vazio/curto demais ("Informe seu nome." / "Informe seu sobrenome.").
     """
-    cleaned = (value or "").strip()
+    # NFC: acento decomposto (letra + acento combinante) vira o caractere composto (spec 0015, AC-3).
+    cleaned = unicodedata.normalize("NFC", value or "").strip()
     if not cleaned:
         raise ValidationError(empty_message, code="required")
     if len(cleaned) > NAME_MAX_LENGTH:

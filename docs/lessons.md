@@ -55,6 +55,7 @@ alwaysApply: false
 - 2026-11-19 · MUI/lift · O `LiftButton` lia `el.disabled` só na montagem: alternar `disabled` por JS depois não mudava o botão MUI (classe `Mui-disabled` e `pointer-events: none` ficavam) · o lift agora observa o atributo `disabled` no nó (MutationObserver).
 - 2026-11-19 · MUI/erro de campo · Classes postas à mão (`Mui-error`) no TextField somem na próxima re-renderização do React (ex.: ao perder o foco) · marcar `aria-invalid` no `<input>` e estilizar por CSS (`:has(input[aria-invalid="true"])` em `frontend/input.css`).
 - 2026-11-19 · testes Django · Comparar o HTML de duas respostas falha porque o `csrfmiddlewaretoken` é mascarado de novo a cada resposta · normalizar os `value="..."` antes de comparar.
+- 2026-11-19 · Unicode/nomes · Texto colado do macOS pode vir com acento decomposto (NFD: `e` + U+0301); o `\w` do Python não aceita o acento combinante · normalizar para NFC antes de validar (servidor e navegador).
 
 ## Promovidas (histórico curto)
 > Rastro de para onde foram as lições podadas — só o link, sem reexplicar. Poda este histórico também.

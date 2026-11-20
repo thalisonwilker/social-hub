@@ -8,12 +8,27 @@
 
   var submit = document.getElementById("signup-submit");
   var field = function (name) { return form.querySelector('[name="' + name + '"]'); };
-  var NAME_CHARS = /^[\p{L}\p{M} '’-]+$/u;
+  // Mesmas regras de apps/accounts/validators.py: o nome é comparado na forma NFC (spec 0015, AC-3).
+  var NAME_CHARS = /^[\p{L} '’-]+$/u;
   var LETTER = /\p{L}/gu;
-  var EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  // Espelho do EmailValidator do Django (dot-atom + domínio com TLD de 2+ letras) — spec 0015, AC-5.
+  var EMAIL_USER = /^[-!#$%&'*+\/=?^_`{}|~0-9A-Z]+(\.[-!#$%&'*+\/=?^_`{}|~0-9A-Z]+)*$/i;
+  var UL = "\u00a1-\uffff";
+  var EMAIL_DOMAIN = new RegExp(
+    "^[a-z" + UL + "0-9](?:[a-z" + UL + "0-9-]{0,61}[a-z" + UL + "0-9])?" +
+    "(?:\\.(?!-)[a-z" + UL + "0-9-]{1,63}(?<!-))*" +
+    "\\.(?!-)(?:[a-z" + UL + "-]{2,63}|xn--[a-z0-9]{1,59})(?<!-)$", "i");
+
+  function emailOk(v) {
+    if (!v || v.length > 254) return false;
+    var at = v.lastIndexOf("@");
+    if (at < 1) return false;
+    var domain = v.slice(at + 1);
+    return EMAIL_USER.test(v.slice(0, at)) && (EMAIL_DOMAIN.test(domain) || domain.toLowerCase() === "localhost");
+  }
 
   function nameError(value, emptyMessage) {
-    var v = value.trim();
+    var v = value.normalize("NFC").trim();
     if (!v) return emptyMessage;
     if (v.length > 150) return "Use no máximo 150 caracteres.";
     if (!NAME_CHARS.test(v)) return "Use apenas letras, espaços, hífen ou apóstrofo.";
@@ -39,7 +54,7 @@
     last_name: function () { return nameError(field("last_name").value, "Informe seu sobrenome."); },
     email: function () {
       var v = field("email").value.trim();
-      return v && v.length <= 254 && EMAIL.test(v) ? "" : "Informe um e-mail válido.";
+      return emailOk(v) ? "" : "Informe um e-mail válido.";
     },
     password1: function () {
       var p = field("password1").value;
@@ -108,9 +123,24 @@
   });
 
   // Evita um segundo clique enquanto a página envia (a trava de idempotência no servidor cobre o resto).
-  form.addEventListener("submit", function () {
-    window.setTimeout(function () { submit.disabled = true; }, 0);
+  // Envio único com carregamento (spec 0015, AC-1); a trava de idempotência no servidor cobre o resto.
+  function setLoading(on) {
+    form.toggleAttribute("data-submitting", on);
+    submit.setAttribute("aria-busy", on ? "true" : "false");
+    form.querySelector("[data-loading]").classList.toggle("hidden", !on);
+    form.querySelector("[data-submit-label]").textContent = on ? "Registrando…" : "Registrar";
+    form.querySelectorAll("input:not([type=hidden]):not([type=checkbox])").forEach(function (el) { el.readOnly = on; });
+    if (on) submit.disabled = true; else updateSubmit();
+  }
+
+  form.addEventListener("submit", function (event) {
+    if (form.hasAttribute("data-submitting") || submit.disabled) { event.preventDefault(); return; }
+    form.setAttribute("data-submitting", "");
+    // Desabilita depois do envio já disparado (desabilitar antes cancelaria o envio do botão).
+    window.setTimeout(function () { setLoading(true); }, 0);
   });
+
+  window.addEventListener("pageshow", function (event) { if (event.persisted) setLoading(false); });
 
   // O botão do Google não faz nada por enquanto (AC-9).
   var google = document.querySelector("[data-google-signin]");

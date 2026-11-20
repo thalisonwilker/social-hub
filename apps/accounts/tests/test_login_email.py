@@ -26,13 +26,10 @@ class EmailBackendTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertContains(response, "Informe um e-mail válido.", status_code=400)
 
-    def test_AC_4_email_in_more_than_one_legacy_account_does_not_authenticate(self):
-        User.objects.create_user("a1", email="dup@x.com", password="pw")
-        User.objects.create_user("a2", email="DUP@x.com", password="pw")
-        self.assertIsNone(authenticate(username="dup@x.com", password="pw"))
+    # O caso "e-mail em mais de uma conta antiga" deixou de existir: o banco proíbe (spec 0015, AC-4).
 
     def test_AC_4_username_match_wins_over_email_field(self):
-        own = User.objects.create_user("ana@x.com", email="ana@x.com", password="pw-certa")
+        own = User.objects.create_user("ana@x.com", password="pw-certa")  # conta sem e-mail no campo
         User.objects.create_user("velho", email="ana@x.com", password="outra")
         self.assertEqual(authenticate(username="Ana@X.com", password="pw-certa"), own)
 

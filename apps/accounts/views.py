@@ -23,7 +23,7 @@ from . import idempotency, login_throttle
 from .forms import MSG_EMAIL_TAKEN, LoginForm, SignupForm, StyledPasswordChangeForm
 from .models import LoginAttempt, SignupIdempotencyKey
 
-SIGNUP_SUCCESS_MESSAGE = "Sua conta foi criada. Entre com seu e-mail e senha."
+SIGNUP_SUCCESS_MESSAGE = "Sua conta foi criada com sucesso! Faça login para continuar."
 SIGNUP_EXPIRED_MESSAGE = "O formulário expirou. Revise os dados e envie novamente."
 
 

@@ -55,7 +55,7 @@
             <div>
               <label class="label" for="{{ field.id_for_label }}">{{ field.label }}</label>
               {{ field }}
-              <p id="{{ field.name }}-error" data-error-for="{{ field.name }}" class="mt-1 text-xs text-danger">{% for error in field.errors %}{{ error }}{% if not forloop.last %} {% endif %}{% endfor %}</p>
+              <p id="{{ field.name }}-error" data-error-for="{{ field.name }}" class="mt-1 text-xs text-danger" aria-live="polite">{% for error in field.errors %}{{ error }}{% if not forloop.last %} {% endif %}{% endfor %}</p>
             </div>
           {% endif %}{% endfor %}
         </div>
@@ -63,7 +63,7 @@
         <div>
           <label class="label" for="{{ form.email.id_for_label }}">{{ form.email.label }}</label>
           {{ form.email }}
-          <p id="email-error" data-error-for="email" class="mt-1 text-xs text-danger">{% for error in form.email.errors %}{{ error }}{% if not forloop.last %} {% endif %}{% endfor %}</p>
+          <p id="email-error" data-error-for="email" class="mt-1 text-xs text-danger" aria-live="polite">{% for error in form.email.errors %}{{ error }}{% if not forloop.last %} {% endif %}{% endfor %}</p>
         </div>
 
         <div>
@@ -81,7 +81,7 @@
             <li data-rule="digit" class="flex items-center gap-1.5 text-muted"><span data-rule-mark aria-hidden="true">•</span>Um número</li>
             <li data-rule="special" class="flex items-center gap-1.5 text-muted"><span data-rule-mark aria-hidden="true">•</span>Um caractere especial (ex.: ! @ # $ %)</li>
           </ul>
-          <p id="password1-error" data-error-for="password1" class="mt-1 text-xs text-danger">{% for error in form.password1.errors %}{{ error }}{% if not forloop.last %} {% endif %}{% endfor %}</p>
+          <p id="password1-error" data-error-for="password1" class="mt-1 text-xs text-danger" aria-live="polite">{% for error in form.password1.errors %}{{ error }}{% if not forloop.last %} {% endif %}{% endfor %}</p>
         </div>
 
         <div>
@@ -93,7 +93,7 @@
               <i data-lucide="eye-off" class="hidden h-4 w-4" data-when="shown"></i>
             </button>
           </div>
-          <p id="password2-error" data-error-for="password2" class="mt-1 text-xs text-danger">{% for error in form.password2.errors %}{{ error }}{% if not forloop.last %} {% endif %}{% endfor %}</p>
+          <p id="password2-error" data-error-for="password2" class="mt-1 text-xs text-danger" aria-live="polite">{% for error in form.password2.errors %}{{ error }}{% if not forloop.last %} {% endif %}{% endfor %}</p>
         </div>
 
         <div>
@@ -101,10 +101,13 @@
             {{ form.accept_terms }}
             <span class="pt-1">Li e aceito os <a href="{% url 'accounts:terms' %}" class="text-accent" target="_blank" rel="noopener">Termos de Uso</a> e a <a href="{% url 'accounts:privacy' %}" class="text-accent" target="_blank" rel="noopener">Política de Privacidade</a></span>
           </label>
-          <p id="accept_terms-error" data-error-for="accept_terms" class="mt-1 text-xs text-danger">{% for error in form.accept_terms.errors %}{{ error }}{% endfor %}</p>
+          <p id="accept_terms-error" data-error-for="accept_terms" class="mt-1 text-xs text-danger" aria-live="polite">{% for error in form.accept_terms.errors %}{{ error }}{% endfor %}</p>
         </div>
 
-        <button type="submit" id="signup-submit" class="btn btn-primary w-full py-2.5 text-base">Criar conta</button>
+        <button type="submit" id="signup-submit" class="btn btn-primary w-full py-2.5 text-base">
+          <span data-loading class="hidden h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" aria-hidden="true"></span>
+          <span data-submit-label>Registrar</span>
+        </button>
       </form>
 
       <p class="mt-6 text-center text-sm text-muted">Já tem conta? <a href="{% url 'accounts:login' %}" class="text-accent">Entrar</a></p>

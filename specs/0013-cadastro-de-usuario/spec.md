@@ -30,6 +30,8 @@ entrar com o e-mail. A tela mostra um botão do Google, **sem ação** por enqua
 ## Critérios de aceite
 
 ### AC-1: Tela de cadastro pública
+> **Revisado pela spec 0015 (AC-1):** o botão passou a se chamar **Registrar**, com carregamento e envio único.
+
 - **Dado** um visitante não autenticado
 - **Quando** abre `/cadastro/`
 - **Então** vê os campos Nome, Sobrenome, E-mail, Senha (com mostrar/ocultar), Confirmar senha, o checkbox "Li e aceito os Termos de Uso e a Política de Privacidade" (com links para `/termos/` e `/privacidade/`), o botão **Criar conta** desabilitado, o botão do Google e o link "Já tem conta? Entrar"; o login ganha o link "Criar conta" para `/cadastro/`
@@ -60,6 +62,8 @@ entrar com o e-mail. A tela mostra um botão do Google, **sem ação** por enqua
 - **Então** o servidor o trata como o mesmo e-mail (consulta só pelo ORM, sem SQL cru): a tela volta com "Este e-mail já está cadastrado." no campo E-mail e nada é criado
 
 ### AC-7: Cadastro bem-sucedido
+> **Revisado pela spec 0015 (AC-6):** a mensagem passou a ser "Sua conta foi criada com sucesso! Faça login para continuar."
+
 - **Dado** um `POST /cadastro/` válido com e-mail ` Fulano@Exemplo.COM `
 - **Quando** o servidor salva
 - **Então** cria um usuário ativo, não staff, com `email` e `username` = `fulano@exemplo.com`, `first_name`/`last_name` aparados, senha com hash; **não** inicia sessão; redireciona para o login, que mostra "Sua conta foi criada. Entre com seu e-mail e senha."

@@ -13,7 +13,7 @@ from .helpers import SIGNUP_URL, signup_data
 
 User = get_user_model()
 LOGIN_URL = reverse("accounts:login")
-SUCCESS = "Sua conta foi criada. Entre com seu e-mail e senha."
+SUCCESS = "Sua conta foi criada com sucesso! Faça login para continuar."  # spec 0015, AC-6
 EXPIRED = "O formulário expirou. Revise os dados e envie novamente."
 
 
