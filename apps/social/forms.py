@@ -185,3 +185,26 @@ class WhatsAppInstanceForm(forms.Form):
         if not key:
             raise forms.ValidationError("Informe a chave da instância.")
         return key
+
+
+class ProfileForm(forms.Form):
+    """Passo 1 do wizard: nome do Perfil (único por usuário, sem diferenciar maiúsculas)."""
+
+    name = forms.CharField(
+        label="Nome do perfil",
+        max_length=60,
+        strip=True,
+        widget=forms.TextInput(
+            attrs={"class": "input", "autofocus": True, "placeholder": "Ex.: Minha loja, Cliente Maria…", "autocomplete": "off"}
+        ),
+    )
+
+    def __init__(self, *args, owner=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.owner = owner
+
+    def clean_name(self):
+        name = self.cleaned_data["name"]
+        if self.owner is not None and self.owner.profiles.filter(name__iexact=name).exists():
+            raise forms.ValidationError("Você já tem um perfil com esse nome.")
+        return name

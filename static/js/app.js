@@ -30,6 +30,19 @@
       return;
     }
 
+    // Mostrar/ocultar senha.
+    var pwd = event.target.closest("[data-password-toggle]");
+    if (pwd) {
+      var input = pwd.parentElement.querySelector("input");
+      var show = input.type === "password";
+      input.type = show ? "text" : "password";
+      pwd.setAttribute("aria-pressed", show ? "true" : "false");
+      pwd.setAttribute("aria-label", show ? "Ocultar senha" : "Mostrar senha");
+      pwd.querySelector('[data-when="hidden"]').classList.toggle("hidden", show);
+      pwd.querySelector('[data-when="shown"]').classList.toggle("hidden", !show);
+      return;
+    }
+
     var dismiss = event.target.closest("[data-dismiss]");
     if (dismiss && dismiss.parentElement) { dismiss.parentElement.remove(); }
   });

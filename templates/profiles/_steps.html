@@ -1,0 +1,13 @@
+<ol data-mui="stepper" class="mb-10 flex items-center justify-center gap-3 text-sm" aria-label="Etapas">
+  {% for label in steps %}
+    {% with n=forloop.counter %}
+    <li class="flex items-center gap-3">
+      <span class="flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold {% if n < step %}bg-emerald-500 text-zinc-950{% elif n == step %}bg-accent text-accent-fg{% else %}bg-white/10 text-zinc-400{% endif %}" {% if n == step %}aria-current="step"{% endif %}>
+        {% if n < step %}<i data-lucide="check" class="h-4 w-4"></i>{% else %}{{ n }}{% endif %}
+      </span>
+      <span class="{% if n == step %}font-medium text-white{% else %}text-zinc-500{% endif %}">{{ label }}</span>
+      {% if not forloop.last %}<span class="h-px w-8 bg-white/15 sm:w-14"></span>{% endif %}
+    </li>
+    {% endwith %}
+  {% endfor %}
+</ol>

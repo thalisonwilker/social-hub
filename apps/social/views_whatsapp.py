@@ -9,7 +9,7 @@ from django.views import View
 
 from .conf import evolution_configured
 from .forms import WhatsAppInstanceForm
-from .services import evolution_connect
+from .services import evolution_connect, profiles
 from .services.evolution import EvolutionClient
 from .validators import is_valid_instance_name
 
@@ -31,7 +31,7 @@ class WhatsAppNewView(View):
     def post(self, request):
         if not evolution_configured():
             messages.error(request, evolution_connect.MSG_NOT_CONFIGURED)
-            return redirect("social:accounts")
+            return redirect(profiles.after(request))
         form = WhatsAppInstanceForm(request.POST)
         if not form.is_valid():
             return self._render(request, form)
@@ -44,4 +44,5 @@ class WhatsAppNewView(View):
             form.add_error(None, str(exc))
             return self._render(request, form)
         messages.success(request, f"“{account.name}” foi conectada.")
-        return redirect("social:accounts")
+        profiles.adopt(request, [account])
+        return redirect(profiles.after(request, ok=True))

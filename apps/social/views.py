@@ -12,7 +12,7 @@ from .conf import evolution_configured, meta_configured, threads_configured
 from .crypto import TokenCryptoError
 from .services import facebook_connect
 from .models import SocialAccount
-from .services import evolution_connect, threads_tokens
+from .services import evolution_connect, profiles, threads_tokens
 from .services.evolution import EvolutionApiError, EvolutionClient
 from .services.threads import ThreadsClient
 from .services.meta import GraphClient, MetaApiError
@@ -39,7 +39,7 @@ class FacebookConnectView(View):
     def post(self, request):
         if not meta_configured():
             messages.error(request, MSG_NOT_CONFIGURED)
-            return redirect("social:accounts")
+            return redirect(profiles.after(request))
         state = facebook_connect.new_state(request.session)
         logger.info("oauth_started")
         return redirect(GraphClient.from_settings().login_url(state))
@@ -53,33 +53,33 @@ class FacebookCallbackView(View):
     def get(self, request):
         if not meta_configured():
             messages.error(request, MSG_NOT_CONFIGURED)
-            return redirect("social:accounts")
+            return redirect(profiles.after(request))
 
         if request.GET.get("error"):
             request.session.pop(facebook_connect.STATE_KEY, None)
             messages.info(request, MSG_CANCELLED)
-            return redirect("social:accounts")
+            return redirect(profiles.after(request))
 
         if not facebook_connect.consume_state(request.session, request.GET.get("state", "")):
             logger.warning("oauth_state_rejected")
             messages.error(request, MSG_STATE)
-            return redirect("social:accounts")
+            return redirect(profiles.after(request))
 
         code = request.GET.get("code", "")
         if not code:
             messages.error(request, MSG_META_FAILURE)
-            return redirect("social:accounts")
+            return redirect(profiles.after(request))
 
         try:
             result = facebook_connect.fetch_pages(request.session, code)
         except (MetaApiError, TokenCryptoError) as exc:
             logger.warning("oauth_failed reason=%s", type(exc).__name__)
             messages.error(request, MSG_META_FAILURE)
-            return redirect("social:accounts")
+            return redirect(profiles.after(request))
 
         if result.usable == 0:
             messages.warning(request, MSG_NO_PERMISSION if result.skipped else MSG_NO_PAGES)
-            return redirect("social:accounts")
+            return redirect(profiles.after(request))
         return redirect("social:facebook_select")
 
 
@@ -106,7 +106,7 @@ class FacebookSelectView(View):
         pages = facebook_connect.pending_pages(request.session)
         if pages is None:
             messages.error(request, MSG_EXPIRED)
-            return redirect("social:accounts")
+            return redirect(profiles.after(request))
         return self._render(request, pages)
 
     def post(self, request):
@@ -117,7 +117,7 @@ class FacebookSelectView(View):
         except facebook_connect.SelectionError as exc:
             if exc.reason == "expired":
                 messages.error(request, MSG_EXPIRED)
-                return redirect("social:accounts")
+                return redirect(profiles.after(request))
             pages = facebook_connect.pending_pages(request.session) or []
             if exc.reason == "empty":
                 return self._render(request, pages, error="Marque ao menos uma Página.")
@@ -126,7 +126,8 @@ class FacebookSelectView(View):
             )
         count = len(accounts)
         messages.success(request, f"{count} Página conectada." if count == 1 else f"{count} Páginas conectadas.")
-        return redirect("social:accounts")
+        profiles.adopt(request, accounts)
+        return redirect(profiles.after(request, ok=True))
 
 
 class AccountsView(TemplateView):
@@ -142,7 +143,8 @@ class AccountsView(TemplateView):
             configured=meta_configured(),
             threads_configured=threads_configured(),
             evolution_configured=evolution_configured(),
-            accounts=SocialAccount.objects.filter(owner=self.request.user).select_related("parent"),
+            accounts=profiles.scope(self.request, SocialAccount.objects.filter(owner=self.request.user)).select_related("parent"),
+            active_profile=profiles.get_active(self.request),
         )
         return context
 

@@ -2,47 +2,75 @@
 {% block title %}Entrar · Social Hub{% endblock %}
 
 {% block body %}
-<main class="flex min-h-screen items-center justify-center px-4 py-10">
-  <div class="w-full max-w-sm">
-    <div class="mb-6 flex items-center gap-3">
+<div class="grid min-h-screen lg:grid-cols-[1.1fr_1fr]">
+  {# Painel de marca (sempre escuro) #}
+  <aside class="relative hidden overflow-hidden bg-zinc-950 p-12 text-zinc-100 lg:flex lg:flex-col lg:justify-between">
+    <div class="pointer-events-none absolute -left-32 -top-32 h-[30rem] w-[30rem] rounded-full bg-orange-600/30 blur-3xl"></div>
+    <div class="pointer-events-none absolute -bottom-40 -right-24 h-[32rem] w-[32rem] rounded-full bg-fuchsia-700/25 blur-3xl"></div>
+
+    <div class="relative flex items-center gap-3">
       <span class="flex h-10 w-10 items-center justify-center rounded bg-accent text-accent-fg shadow-raised"><i data-lucide="layers" class="h-5 w-5"></i></span>
-      <div>
-        <p class="text-lg font-semibold leading-tight tracking-tight">Social Hub</p>
-        <p class="text-xs text-muted">Gerenciamento de redes sociais</p>
-      </div>
+      <span class="text-lg font-semibold tracking-tight">Social Hub</span>
     </div>
 
-    <form method="post" class="card space-y-4 p-6" novalidate>
-      {% csrf_token %}
-      <h1 class="text-base font-semibold">Acessar sua conta</h1>
+    <div class="relative max-w-md">
+      <h2 class="text-4xl font-semibold leading-tight tracking-tight">Todas as suas redes, um só lugar.</h2>
+      <p class="mt-4 text-zinc-400">Crie perfis para cada marca ou cliente, conecte suas redes e publique em todas de uma vez.</p>
+      <ul class="mt-8 flex gap-3" aria-hidden="true">
+        <li class="flex h-11 w-11 items-center justify-center rounded-full bg-white/10"><i data-lucide="facebook" class="h-5 w-5"></i></li>
+        <li class="flex h-11 w-11 items-center justify-center rounded-full bg-white/10"><i data-lucide="instagram" class="h-5 w-5"></i></li>
+        <li class="flex h-11 w-11 items-center justify-center rounded-full bg-white/10"><i data-lucide="at-sign" class="h-5 w-5"></i></li>
+        <li class="flex h-11 w-11 items-center justify-center rounded-full bg-white/10"><i data-lucide="message-circle" class="h-5 w-5"></i></li>
+      </ul>
+    </div>
 
-      {% if form.non_field_errors %}
-        <div class="border-l-2 border-l-danger bg-surface-2 px-3 py-2 text-sm text-danger" role="alert">
-          {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+    <p class="relative text-xs text-zinc-500">Gerenciamento de redes sociais</p>
+  </aside>
+
+  {# Formulário #}
+  <main class="relative flex items-center justify-center px-6 py-12">
+    <button type="button" data-theme-toggle class="btn btn-ghost absolute right-4 top-4 p-2 text-muted" aria-label="Alternar tema">
+      <i data-lucide="sun" class="hidden h-[18px] w-[18px] dark:block"></i><i data-lucide="moon" class="h-[18px] w-[18px] dark:hidden"></i>
+    </button>
+
+    <div class="w-full max-w-sm">
+      <div class="mb-8 flex items-center gap-3 lg:hidden">
+        <span class="flex h-10 w-10 items-center justify-center rounded bg-accent text-accent-fg shadow-raised"><i data-lucide="layers" class="h-5 w-5"></i></span>
+        <span class="text-lg font-semibold tracking-tight">Social Hub</span>
+      </div>
+
+      <h1 class="text-2xl font-semibold tracking-tight">Bem-vindo de volta</h1>
+      <p class="mt-1 text-muted">Entre para escolher seu perfil.</p>
+
+      <form method="post" class="mt-8 space-y-5" novalidate>
+        {% csrf_token %}
+        {% if form.non_field_errors %}
+          <div class="border-l-2 border-l-danger bg-surface-2 px-3 py-2 text-sm text-danger" role="alert">
+            {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+          </div>
+        {% endif %}
+
+        <div>
+          <label class="label" for="{{ form.username.id_for_label }}">{{ form.username.label }}</label>
+          {{ form.username }}
+          {% for error in form.username.errors %}<p class="mt-1 text-xs text-danger">{{ error }}</p>{% endfor %}
         </div>
-      {% endif %}
+        <div>
+          <label class="label" for="{{ form.password.id_for_label }}">{{ form.password.label }}</label>
+          <div class="relative">
+            {{ form.password }}
+            <button type="button" data-password-toggle class="absolute inset-y-0 right-0 flex items-center px-3 text-muted hover:text-fg" aria-label="Mostrar senha" aria-pressed="false">
+              <i data-lucide="eye" class="h-4 w-4" data-when="hidden"></i>
+              <i data-lucide="eye-off" class="hidden h-4 w-4" data-when="shown"></i>
+            </button>
+          </div>
+          {% for error in form.password.errors %}<p class="mt-1 text-xs text-danger">{{ error }}</p>{% endfor %}
+        </div>
 
-      <div>
-        <label class="label" for="{{ form.username.id_for_label }}">{{ form.username.label }}</label>
-        {{ form.username }}
-        {% for error in form.username.errors %}<p class="mt-1 text-xs text-danger">{{ error }}</p>{% endfor %}
-      </div>
-      <div>
-        <label class="label" for="{{ form.password.id_for_label }}">{{ form.password.label }}</label>
-        {{ form.password }}
-        {% for error in form.password.errors %}<p class="mt-1 text-xs text-danger">{{ error }}</p>{% endfor %}
-      </div>
-
-      <input type="hidden" name="next" value="{{ next }}">
-      <button type="submit" class="btn btn-primary w-full">Entrar</button>
-    </form>
-
-    <div class="mt-4 flex justify-center">
-      <button type="button" data-theme-toggle class="btn btn-ghost text-xs text-muted" aria-label="Alternar tema">
-        <i data-lucide="sun" class="hidden h-4 w-4 dark:block"></i><i data-lucide="moon" class="h-4 w-4 dark:hidden"></i>
-        Alternar tema
-      </button>
+        <input type="hidden" name="next" value="{{ next }}">
+        <button type="submit" class="btn btn-primary w-full py-2.5 text-base">Entrar</button>
+      </form>
     </div>
-  </div>
-</main>
+  </main>
+</div>
 {% endblock %}

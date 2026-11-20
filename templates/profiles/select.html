@@ -1,0 +1,28 @@
+{% extends "profiles/stage.html" %}
+{% block stage %}
+<h1 class="text-center text-3xl font-semibold tracking-tight sm:text-4xl">Quem está usando?</h1>
+<p class="mt-2 text-center text-muted">
+  {% if profiles %}Selecione o perfil que deseja gerenciar{% else %}Crie seu primeiro perfil para começar{% endif %}
+</p>
+
+<ul class="mt-12 flex flex-wrap justify-center gap-x-8 gap-y-10" aria-label="Perfis">
+  {% for profile in profiles %}
+  <li>
+    <form method="post" action="{% url 'social:profile_enter' profile.pk %}">
+      {% csrf_token %}
+      <button type="submit" data-mui="tile" data-tile="avatar" aria-label="Abrir o perfil {{ profile.name }}">
+        <span data-tile-initial style="background:linear-gradient(135deg,hsl({{ profile.hue }} 80% 55%),hsl({{ profile.hue|add:50 }} 75% 38%))">{{ profile.initial }}</span>
+        <span data-tile-label>{{ profile.name }}</span>
+        <span data-tile-hint>{{ profile.account_count }} conta{{ profile.account_count|pluralize }}</span>
+      </button>
+    </form>
+  </li>
+  {% endfor %}
+  <li>
+    <a href="{% url 'social:profile_new' %}" data-mui="tile" data-tile="avatar" aria-label="Novo perfil">
+      <i data-lucide="plus"></i>
+      <span data-tile-label>Novo perfil</span>
+    </a>
+  </li>
+</ul>
+{% endblock %}

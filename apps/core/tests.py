@@ -26,11 +26,11 @@ class SmokeTests(TestCase):
         for name in ("dashboard:index", "social:accounts", "social:posts", "social:calendar", "accounts:profile", "accounts:password_change"):
             self.assertEqual(self.client.get(reverse(name)).status_code, 200, name)
 
-    def test_login_flow_redirects_to_dashboard(self):
+    def test_login_flow_redirects_to_profile_select(self):
         response = self.client.post(
             reverse("accounts:login"), {"username": "tester", "password": "s3nha-forte-123"}
         )
-        self.assertRedirects(response, reverse("dashboard:index"))
+        self.assertRedirects(response, reverse("social:profile_select"))  # spec 0011, AC-1
 
     def test_logout_requires_post(self):
         self.client.force_login(self.user)

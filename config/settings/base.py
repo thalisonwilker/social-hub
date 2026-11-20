@@ -67,6 +67,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "apps.core.context_processors.navigation",
+                "apps.core.context_processors.active_profile",
             ],
         },
     },
@@ -167,7 +168,7 @@ PUBLISH_SENDING_STALE_SECONDS = int(os.environ.get("PUBLISH_SENDING_STALE_SECOND
 TEST_RUNNER = "config.test_runner.InlinePublishRunner"
 
 LOGIN_URL = "accounts:login"
-LOGIN_REDIRECT_URL = "dashboard:index"
+LOGIN_REDIRECT_URL = "social:profile_select"
 LOGOUT_REDIRECT_URL = "accounts:login"
 
 LANGUAGE_CODE = "pt-br"

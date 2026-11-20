@@ -5,6 +5,30 @@ from django.utils import timezone
 from .crypto import decrypt_token, encrypt_token
 
 
+class Profile(models.Model):
+    """Perfil (workspace) do usuário: agrupa as Contas conectadas e é escolhido após o login (spec 0011)."""
+
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="profiles")
+    name = models.CharField(max_length=60)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at", "id"]
+        constraints = [models.UniqueConstraint(fields=["owner", "name"], name="unique_profile_name_per_owner")]
+
+    def __str__(self) -> str:
+        return self.name
+
+    @property
+    def initial(self) -> str:
+        return (self.name[:1] or "?").upper()
+
+    @property
+    def hue(self) -> int:
+        """Matiz estável (0–359) para o avatar."""
+        return (self.pk or 0) * 47 % 360
+
+
 class SocialAccount(models.Model):
     """Conta de rede social conectada por um usuário (hoje: Página do Facebook)."""
 
@@ -21,6 +45,7 @@ class SocialAccount(models.Model):
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="social_accounts"
     )
+    profile = models.ForeignKey(Profile, null=True, blank=True, on_delete=models.CASCADE, related_name="accounts")
     platform = models.CharField(max_length=32, choices=Platform.choices)
     external_id = models.CharField("ID na plataforma", max_length=64)
     name = models.CharField(max_length=255)

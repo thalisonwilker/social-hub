@@ -1,0 +1,48 @@
+{% extends "profiles/stage.html" %}
+{% block stage %}
+{% include "profiles/_steps.html" %}
+<h1 class="text-center text-3xl font-semibold tracking-tight">Conecte as redes de “{{ profile.name }}”</h1>
+<p class="mt-2 max-w-xl text-center text-muted">Escolha uma rede para autorizar. Você pode conectar várias, e também adicionar mais tarde em Contas conectadas.</p>
+
+<ul class="mt-10 grid w-full max-w-3xl grid-cols-2 gap-4 sm:grid-cols-3" aria-label="Redes sociais">
+  {% for n in networks %}
+  <li>
+    {% if n.kind == "soon" %}
+      <div data-mui="tile" data-soon="1" aria-disabled="true"><i data-lucide="{{ n.icon }}"></i><span data-tile-label>{{ n.label }}</span><span data-tile-hint>Em breve</span></div>
+    {% elif n.kind == "link" %}
+      {% if n.enabled %}
+      <a href="{% url n.url %}" data-mui="tile"><i data-lucide="{{ n.icon }}"></i><span data-tile-label>{{ n.label }}</span><span data-tile-hint>{{ n.hint }}</span></a>
+      {% else %}
+      <div data-mui="tile" aria-disabled="true"><i data-lucide="{{ n.icon }}"></i><span data-tile-label>{{ n.label }}</span><span data-tile-hint>Integração não configurada</span></div>
+      {% endif %}
+    {% else %}
+      <form method="post" action="{% url n.url %}" class="h-full">
+        {% csrf_token %}
+        <button type="submit" data-mui="tile" {% if not n.enabled %}disabled aria-disabled="true"{% endif %}><i data-lucide="{{ n.icon }}"></i><span data-tile-label>{{ n.label }}</span><span data-tile-hint>{% if n.enabled %}{{ n.hint }}{% else %}Integração não configurada{% endif %}</span></button>
+      </form>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>
+
+{% if accounts %}
+<section class="mt-10 w-full max-w-3xl" aria-label="Contas já conectadas">
+  <p class="mb-3 text-xs font-medium uppercase tracking-wide text-muted">Já conectadas neste perfil</p>
+  <ul class="space-y-2">
+    {% for account in accounts %}
+    <li class="card flex items-center gap-3 px-4 py-3">
+      <i data-lucide="circle-check" class="h-4 w-4 text-ok"></i>
+      <span class="truncate font-medium">{{ account.name }}</span>
+      <span class="ml-auto text-xs text-muted">{{ account.get_platform_display }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+<form method="post" action="{% url 'social:profile_done' profile.pk %}" class="mt-10 flex w-full max-w-3xl items-center justify-between gap-3">
+  {% csrf_token %}
+  <a href="{% url 'social:profile_select' %}" class="btn btn-ghost">Voltar aos perfis</a>
+  <button type="submit" class="btn btn-primary px-6">{% if accounts %}Ir para o dashboard{% else %}Concluir por agora{% endif %}<i data-lucide="arrow-right" class="h-4 w-4"></i></button>
+</form>
+{% endblock %}

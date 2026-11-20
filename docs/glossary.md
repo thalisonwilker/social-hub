@@ -48,6 +48,7 @@ alwaysApply: false
 | Publicação | Conteúdo (texto + 1 imagem) a ser publicado em uma ou mais Páginas. | Post | Social |
 | Página | Página do Facebook administrada pelo usuário na Meta. | Perfil pessoal | Social |
 | Reconexão necessária | Estado da Conta social cujo token expirou, foi revogado ou perdeu permissão. | Conta desconectada | Social |
+| Perfil | Workspace do usuário que agrupa as Contas conectadas; escolhido após o login ("Quem está usando?") e criado por um wizard (nome → redes). | Conta de usuário (login) | Social |
 | Reivindicar | Marcar atomicamente um alvo como `sending` para que só uma requisição o envie. | Bloquear | Social |
 | Renovar (token) | Trocar o token vigente por um novo de 60 dias, sem o usuário fazer login. | Reconectar (exige login) | Social |
 | Resolver (alvo incerto) | Decisão do usuário sobre um alvo Incerto: "Já foi publicado" ou "Reenviar". | Tentar novamente (só para Falhou) | Social |

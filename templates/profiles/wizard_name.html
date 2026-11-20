@@ -1,0 +1,20 @@
+{% extends "profiles/stage.html" %}
+{% block stage %}
+{% include "profiles/_steps.html" %}
+<form method="post" class="w-full max-w-md" novalidate>
+  {% csrf_token %}
+  <h1 class="text-center text-3xl font-semibold tracking-tight">Como vai se chamar o perfil?</h1>
+  <p class="mt-2 text-center text-muted">Use o nome da marca, do cliente ou do projeto. Depois você conecta as redes.</p>
+
+  <div class="mt-8">
+    <label for="{{ form.name.id_for_label }}" class="mb-1.5 block text-xs font-medium text-muted">{{ form.name.label }}</label>
+    {{ form.name }}
+    {% for error in form.name.errors %}<p class="mt-1.5 text-xs text-danger" role="alert">{{ error }}</p>{% endfor %}
+  </div>
+
+  <div class="mt-6 flex items-center gap-3">
+    <a href="{% url 'social:profile_select' %}" class="btn flex-1">Cancelar</a>
+    <button type="submit" class="btn btn-primary flex-1">Continuar<i data-lucide="arrow-right" class="h-4 w-4"></i></button>
+  </div>
+</form>
+{% endblock %}

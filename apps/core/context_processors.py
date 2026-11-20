@@ -21,6 +21,15 @@ def _mark_active(items, match):
     return [{**item, "active": any(full.startswith(prefix) for prefix in item["prefixes"])} for item in items]
 
 
+def active_profile(request):
+    """Perfil ativo (chip do header); nunca consulta o banco para quem não está logado."""
+    if not getattr(request, "user", None) or not request.user.is_authenticated:
+        return {}
+    from apps.social.services import profiles
+
+    return {"active_profile": profiles.get_active(request)}
+
+
 def navigation(request):
     match = getattr(request, "resolver_match", None)
     return {

@@ -14,7 +14,7 @@ from .forms import PublicationForm
 from . import views_ai
 from .services import gemini
 from .models import Publication, SocialAccount, WorkerHeartbeat
-from .services import deletion, publishing, threads_tokens
+from .services import deletion, profiles, publishing, threads_tokens
 
 logger = logging.getLogger("apps.social.meta")
 
@@ -102,14 +102,17 @@ class PostNewView(View):
         threads_tokens.expire_stale_tokens(request.user)  # contas com token vencido não podem ser alvo
         configured = self._configured()
         accounts = list(
-            SocialAccount.objects.filter(
-                owner=request.user,
-                platform__in=[
-                    SocialAccount.Platform.FACEBOOK_PAGE,
-                    SocialAccount.Platform.THREADS,
-                    SocialAccount.Platform.WHATSAPP_STATUS,
-                    SocialAccount.Platform.INSTAGRAM,
-                ],
+            profiles.scope(
+                request,
+                SocialAccount.objects.filter(
+                    owner=request.user,
+                    platform__in=[
+                        SocialAccount.Platform.FACEBOOK_PAGE,
+                        SocialAccount.Platform.THREADS,
+                        SocialAccount.Platform.WHATSAPP_STATUS,
+                        SocialAccount.Platform.INSTAGRAM,
+                    ],
+                ),
             )
         )
         for account in accounts:

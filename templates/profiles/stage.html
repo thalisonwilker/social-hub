@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{# Palco escuro de tela cheia (seleção de perfil e wizard): independente do tema claro/escuro. #}
+{% block title %}{% if page_title %}{{ page_title }} · {% endif %}Social Hub{% endblock %}
+
+{% block body %}
+<div data-mui-theme="dark" class="relative min-h-screen overflow-hidden bg-zinc-950 text-zinc-100">
+  <div class="pointer-events-none absolute -left-40 -top-40 h-[28rem] w-[28rem] rounded-full bg-orange-600/25 blur-3xl"></div>
+  <div class="pointer-events-none absolute -bottom-48 -right-32 h-[30rem] w-[30rem] rounded-full bg-fuchsia-700/20 blur-3xl"></div>
+
+  <header class="relative z-10 flex items-center justify-between px-6 py-5 sm:px-10">
+    <a href="{% url 'social:profile_select' %}" class="flex items-center gap-2.5" aria-label="Social Hub">
+      <span class="flex h-9 w-9 items-center justify-center rounded bg-accent text-accent-fg shadow-raised"><i data-lucide="layers" class="h-5 w-5"></i></span>
+      <span class="text-base font-semibold tracking-tight">Social Hub</span>
+    </a>
+    <form method="post" action="{% url 'accounts:logout' %}">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-ghost">
+        <i data-lucide="log-out" class="h-4 w-4"></i>Sair
+      </button>
+    </form>
+  </header>
+
+  <main class="relative z-10 mx-auto flex w-full max-w-4xl flex-col items-center px-4 pb-16 pt-6 sm:px-6">
+    {% if messages %}
+      <div class="mb-6 w-full max-w-xl space-y-2" role="status">
+        {% for message in messages %}
+          <div class="flex items-start justify-between gap-3 border-l-2 px-4 py-3 {% if message.level_tag == 'error' %}border-l-danger{% else %}border-l-ok{% endif %}">
+            <span>{{ message }}</span>
+            <button type="button" data-dismiss class="text-muted" aria-label="Fechar aviso"><i data-lucide="x" class="h-4 w-4"></i></button>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+    {% block stage %}{% endblock %}
+  </main>
+</div>
+{% endblock %}

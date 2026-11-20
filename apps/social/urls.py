@@ -6,11 +6,16 @@ from django.urls import path, re_path
 
 from apps.core.views import PlaceholderView
 
-from . import views, views_ai, views_public, views_publications, views_threads, views_whatsapp
+from . import views, views_ai, views_profiles, views_public, views_publications, views_threads, views_whatsapp
 
 app_name = "social"
 
 urlpatterns = [
+    path("perfis/", views_profiles.ProfileSelectView.as_view(), name="profile_select"),
+    path("perfis/novo/", views_profiles.ProfileNewView.as_view(), name="profile_new"),
+    path("perfis/<int:pk>/entrar/", views_profiles.ProfileEnterView.as_view(), name="profile_enter"),
+    path("perfis/<int:pk>/conectar/", views_profiles.ProfileConnectView.as_view(), name="profile_connect"),
+    path("perfis/<int:pk>/concluir/", views_profiles.ProfileDoneView.as_view(), name="profile_done"),
     path("contas/facebook/conectar/", views.FacebookConnectView.as_view(), name="facebook_connect"),
     path("contas/facebook/callback/", views.FacebookCallbackView.as_view(), name="facebook_callback"),
     path("contas/facebook/selecionar/", views.FacebookSelectView.as_view(), name="facebook_select"),
