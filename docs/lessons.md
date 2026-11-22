@@ -60,6 +60,8 @@ alwaysApply: false
 
 - 2026-11-21 · Tailwind/purge · Classe montada no template (`hub-{{ slug }}`) dentro de `@layer components` some do CSS gerado (o purge não acha o nome literal) · regras para classes dinâmicas ficam fora do `@layer`, ou o nome vai literal no template.
 
+- 2026-11-21 · Esteira/eval · O `eval-spec-fidelity` contava toda menção `AC-N` da spec como AC dela: citar "spec 0013, AC-11" exigia task para um AC que não existe · agora lê só os cabeçalhos `### AC-N`; spec sem `tasks.md` (0008) também quebra o gate.
+
 ## Promovidas (histórico curto)
 > Rastro de para onde foram as lições podadas — só o link, sem reexplicar. Poda este histórico também.
 - <YYYY-MM-DD: "<lição>" → [ADR-NNNN](architecture/adr/NNNN-*.md) / glossary / CLAUDE.md>

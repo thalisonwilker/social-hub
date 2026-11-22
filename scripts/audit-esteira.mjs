@@ -11,6 +11,7 @@ const ROOT = resolve(process.argv[2] || ".");
 // canônica (.claude/CLAUDE.md), não a fonte; auditar a fonte basta e evita falso-positivo.
 const IGNORE_DIRS = new Set([
   "node_modules", ".git", ".spec-driven",
+  ".venv", "venv", // ambiente virtual do Python: pacotes de terceiros, não são docs do projeto
   ".agents", ".cursor", ".gemini", ".windsurf",
   ".agent", // espelho das skills para o Google Antigravity (cópia de .agents/skills)
 ]);

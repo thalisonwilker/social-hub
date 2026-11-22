@@ -10,7 +10,7 @@ import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
 import { join, resolve, extname } from "node:path";
 
 const ROOT = resolve(process.argv[2] || ".");
-const SKIP = new Set(["node_modules", ".git", ".claude", "specs", "docs", "scripts"]);
+const SKIP = new Set(["node_modules", ".git", ".claude", "specs", "docs", "scripts", ".venv", "venv", "static"]);
 const CODE_EXT = new Set([".js",".mjs",".cjs",".ts",".tsx",".jsx",".py",".go",".java",".rb",".php",".cs",".rs",".kt",".swift",".sql",".feature",".test"]);
 
 function walkCode(dir) {
@@ -25,6 +25,12 @@ function walkCode(dir) {
 }
 
 const acTokens = (s) => new Set(s.match(/AC-\d+/g) || []);
+// ACs DEFINIDOS na spec: os cabeçalhos `### AC-N` do template. Menções soltas (ex.: "spec 0013, AC-11")
+// citam ACs de outra spec e não entram. Spec sem cabeçalhos cai no comportamento antigo (todo token AC-N).
+const specACs = (s) => {
+  const defined = new Set([...s.matchAll(/^#{2,4}\s+(AC-\d+)\b/gm)].map((m) => m[1]));
+  return defined.size ? defined : acTokens(s);
+};
 
 const specsDir = join(ROOT, "specs");
 if (!existsSync(specsDir)) { console.log("Sem specs/ — nada a avaliar."); process.exit(0); }
@@ -40,7 +46,7 @@ for (const name of readdirSync(specsDir)) {
   if (!/^\d{4}-/.test(name)) continue;
   const dir = join(specsDir, name);
   if (!existsSync(join(dir, "spec.md"))) continue;
-  const acs = [...acTokens(readFileSync(join(dir, "spec.md"), "utf8"))].sort();
+  const acs = [...specACs(readFileSync(join(dir, "spec.md"), "utf8"))].sort();
   if (!acs.length) continue;
   const taskACs = existsSync(join(dir, "tasks.md")) ? acTokens(readFileSync(join(dir, "tasks.md"), "utf8")) : new Set();
   const uncovered = acs.filter((ac) => !taskACs.has(ac));

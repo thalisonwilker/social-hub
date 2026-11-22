@@ -15,6 +15,7 @@ const ROOT = resolve(process.argv[2] || ".");
 // Mesmas pastas que o audit ignora: derivadas/sistema, não a fonte canônica.
 const IGNORE_DIRS = new Set([
   "node_modules", ".git", ".spec-driven",
+  ".venv", "venv", // ambiente virtual do Python: pacotes de terceiros, não são docs do projeto
   ".agents", ".cursor", ".gemini", ".windsurf",
 ]);
 
