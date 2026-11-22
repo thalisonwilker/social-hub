@@ -60,6 +60,8 @@ class SocialAccount(models.Model):
     connected_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     last_checked_at = models.DateTimeField(null=True, blank=True)
+    # Seguidores lidos na plataforma ao "Atualizar informações" (spec 0017). Nulo = desconhecido (Threads/WhatsApp).
+    followers_count = models.PositiveIntegerField(null=True, blank=True)
     # Só para tokens que expiram (Threads, 60 dias). Páginas do Facebook não expiram: ficam nulos.
     token_expires_at = models.DateTimeField(null=True, blank=True)
     token_refreshed_at = models.DateTimeField(null=True, blank=True)

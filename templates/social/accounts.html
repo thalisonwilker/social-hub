@@ -1,35 +1,12 @@
 {% extends "layout.html" %}
+{% load static %}
 {% block content %}
-<div class="mb-5 flex flex-wrap items-center justify-between gap-3">
-  <p class="text-muted">Conecte as Páginas e perfis que você administra para gerenciá-los pelo Social Hub.</p>
-  <div class="flex flex-wrap gap-2">
-    <form method="post" action="{% url 'social:facebook_connect' %}">
-      {% csrf_token %}
-      <button type="submit" class="btn btn-primary" {% if not configured %}disabled aria-disabled="true"{% endif %}>
-        <i data-lucide="facebook" class="h-4 w-4"></i>Conectar Facebook
-      </button>
-    </form>
-    <form method="post" action="{% url 'social:threads_connect' %}">
-      {% csrf_token %}
-      <button type="submit" class="btn btn-primary" {% if not threads_configured %}disabled aria-disabled="true" title="Integração com o Threads não configurada"{% endif %}>
-        <i data-lucide="at-sign" class="h-4 w-4"></i>Conectar Threads
-      </button>
-    </form>
-    {% if evolution_configured %}
-    <a href="{% url 'social:whatsapp_new' %}" class="btn btn-primary"><i data-lucide="message-circle" class="h-4 w-4"></i>Adicionar WhatsApp</a>
-    {% else %}
-    <button type="button" class="btn btn-primary" disabled aria-disabled="true" title="Integração com o WhatsApp não configurada"><i data-lucide="message-circle" class="h-4 w-4"></i>Adicionar WhatsApp</button>
-    {% endif %}
-  </div>
-</div>
-
-{% if not threads_configured %}
-<p class="mb-4 text-xs text-muted">Threads: integração com o Threads não configurada (veja as variáveis <code>THREADS_*</code> no README).</p>
-{% endif %}
-
-{% if not evolution_configured %}
-<p class="mb-4 text-xs text-muted">WhatsApp: integração com o WhatsApp não configurada (veja <code>EVOLUTION_API_URL</code> no README).</p>
-{% endif %}
+{# Central de conexões (spec 0017): ícones como navegação + painel da rede selecionada. #}
+<header class="mb-6">
+  <p class="text-xs font-semibold uppercase tracking-[0.18em] text-accent">Social Hub / Contas</p>
+  <h1 class="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">Conexões de redes sociais</h1>
+  <p class="mt-1 text-muted">Sua central de publicação começa aqui. Ative os canais que deseja utilizar.</p>
+</header>
 
 {% if not configured %}
 <div class="card mb-5 flex items-start gap-3 border-l-2 border-l-warn px-4 py-3" role="status">
@@ -41,56 +18,138 @@
 </div>
 {% endif %}
 
-<section class="card" aria-label="Contas conectadas">
-  {% for account in accounts %}
-    <article class="flex flex-wrap items-center gap-4 px-5 py-4 {% if not forloop.last %}border-b border-line{% endif %}">
-      {% if account.picture_url %}
-        <img src="{{ account.picture_url }}" alt="" data-mui="avatar" class="h-11 w-11" referrerpolicy="no-referrer">
-      {% else %}
-        <span data-mui="avatar" class="h-11 w-11"><i data-lucide="{% if account.platform == 'threads' %}at-sign{% elif account.platform == 'whatsapp_status' %}message-circle{% elif account.platform == 'instagram' %}instagram{% else %}flag{% endif %}" class="h-5 w-5"></i></span>
-      {% endif %}
-
-      <div class="min-w-0 flex-1">
-        <p class="truncate font-medium">{{ account.name }}</p>
-        <p class="truncate text-xs text-muted">
-          {{ account.get_platform_display }}{% if account.platform == 'whatsapp_status' %} · instância {{ account.external_id }}{% elif account.platform == 'instagram' and account.parent %} · via Página {{ account.parent.name }}{% endif %}{% if account.username %} · @{{ account.username }}{% elif account.category %} · {{ account.category }}{% endif %} · conectada em {{ account.connected_at|date:"d/m/Y" }}{% if account.token_expires_at %} · token expira em {{ account.days_until_token_expiry }} dia(s){% endif %}
-        </p>
-      </div>
-
-      <span class="badge {% if account.needs_reauth %}badge-warn{% else %}badge-ok{% endif %}">{{ account.get_status_display }}</span>
-
-      <div class="flex gap-2">
-        {% if account.needs_reauth %}
-        {% if account.platform == 'whatsapp_status' %}
-        <a href="{% url 'social:whatsapp_new' %}?instance={{ account.external_id }}" class="btn btn-primary"><i data-lucide="key-round" class="h-4 w-4"></i>Atualizar chave</a>
-        {% elif account.platform == 'threads' %}
-        <form method="post" action="{% url 'social:threads_connect' %}">
-          {% csrf_token %}
-          <button type="submit" class="btn btn-primary" {% if not threads_configured %}disabled{% endif %}><i data-lucide="refresh-cw" class="h-4 w-4"></i>Reconectar</button>
-        </form>
-        {% else %}
-        <form method="post" action="{% url 'social:facebook_connect' %}">
-          {% csrf_token %}
-          <button type="submit" class="btn btn-primary" {% if not configured %}disabled{% endif %}><i data-lucide="refresh-cw" class="h-4 w-4"></i>Reconectar</button>
-        </form>
-        {% endif %}
-        {% endif %}
-        <form method="post" action="{% url 'social:account_check' account.pk %}">
-          {% csrf_token %}
-          <button type="submit" class="btn"><i data-lucide="refresh-cw" class="h-4 w-4"></i>Verificar</button>
-        </form>
-        <form method="post" action="{% url 'social:account_disconnect' account.pk %}" data-confirm="Desconectar “{{ account.name }}”? {% if account.platform == 'facebook_page' %}O Instagram vinculado a esta Página também será desconectado. {% endif %}{% if account.platform == 'whatsapp_status' %}A chave da instância{% else %}O token{% endif %} será apagad{% if account.platform == 'whatsapp_status' %}a{% else %}o{% endif %} do Social Hub.">
-          {% csrf_token %}
-          <button type="submit" class="btn text-danger"><i data-lucide="trash-2" class="h-4 w-4"></i>Desconectar</button>
-        </form>
-      </div>
-    </article>
-  {% empty %}
-    <div class="px-6 py-12 text-center">
-      <span class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded border border-line bg-surface-2 text-accent"><i data-lucide="share-2" class="h-6 w-6"></i></span>
-      <h2 class="text-base font-semibold">Nenhuma conta conectada</h2>
-      <p class="mx-auto mt-1 max-w-md text-muted">Clique em “Conectar Facebook” para autorizar o Social Hub e escolher as Páginas que deseja gerenciar.</p>
+<div class="hub" data-hub>
+  <nav class="hub-rail" aria-label="Redes sociais">
+    <div role="tablist" aria-label="Redes sociais" aria-orientation="vertical" class="hub-tabs" data-hub-tablist>
+      {% for p in panels %}
+      <a href="?rede={{ p.network.slug }}" role="tab" id="hub-tab-{{ p.network.slug }}" class="hub-tab hub-{{ p.network.slug }}"
+         aria-controls="hub-panel-{{ p.network.slug }}" aria-selected="{% if p.selected %}true{% else %}false{% endif %}"
+         tabindex="{% if p.selected %}0{% else %}-1{% endif %}" aria-label="{{ p.aria_label }}"
+         data-state="{{ p.state }}" data-hub-tab="{{ p.network.slug }}">
+        <i data-lucide="{{ p.network.icon }}" class="h-6 w-6"></i>
+        <span class="hub-dot" aria-hidden="true"></span>
+        <span class="hub-tip" aria-hidden="true">{{ p.network.label }}</span>
+      </a>
+      {% endfor %}
     </div>
-  {% endfor %}
-</section>
+  </nav>
+
+  <div class="hub-panel">
+    {% for p in panels %}
+    <section role="tabpanel" id="hub-panel-{{ p.network.slug }}" aria-labelledby="hub-tab-{{ p.network.slug }}"
+             class="hub-view" data-hub-panel="{{ p.network.slug }}" tabindex="-1" {% if not p.selected %}hidden{% endif %}>
+      <p class="hub-eyebrow">{% if p.accounts %}Conexão selecionada{% else %}{{ p.network.label }}{% endif %}</p>
+
+      {% if p.accounts %}
+        {% if p.accounts|length > 1 %}
+        <div role="tablist" aria-label="Contas do {{ p.network.label }}" class="hub-accounts" data-hub-account-list>
+          {% for a in p.accounts %}
+          <button type="button" role="tab" id="hub-acct-tab-{{ a.pk }}" aria-controls="hub-acct-{{ a.pk }}"
+                  aria-selected="{% if forloop.first %}true{% else %}false{% endif %}" tabindex="{% if forloop.first %}0{% else %}-1{% endif %}"
+                  class="hub-account-tab" data-hub-account="{{ a.pk }}">
+            <span class="hub-mini-dot{% if a.needs_reauth %} is-warn{% endif %}" aria-hidden="true"></span>{{ a.name }}
+          </button>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        {% for a in p.accounts %}
+        <article id="hub-acct-{{ a.pk }}" class="hub-account" data-hub-account-panel="{{ a.pk }}"
+                 {% if p.accounts|length > 1 %}role="tabpanel" aria-labelledby="hub-acct-tab-{{ a.pk }}"{% endif %}
+                 {% if not forloop.first %}hidden{% endif %}>
+          <div class="flex items-center gap-4">
+            <span class="hub-avatar hub-{{ p.network.slug }}">
+              {% if a.picture_url %}<img src="{{ a.picture_url }}" alt="" referrerpolicy="no-referrer" data-hub-avatar>{% endif %}
+              <span class="hub-avatar-icon" {% if a.picture_url %}hidden{% endif %} data-hub-avatar-fallback><i data-lucide="{{ p.network.icon }}" class="h-6 w-6"></i></span>
+            </span>
+            <div class="min-w-0">
+              <h2 class="truncate text-lg font-semibold">{{ a.name }}</h2>
+              {% if a.needs_reauth %}
+              <p class="hub-status is-warn"><span aria-hidden="true">●</span> Reconexão necessária <span class="font-normal text-muted">· {{ a.get_platform_display }}</span></p>
+              {% else %}
+              <p class="hub-status is-ok"><span aria-hidden="true">●</span> Conexão ativa <span class="font-normal text-muted">· {{ a.get_platform_display }}</span></p>
+              {% endif %}
+            </div>
+          </div>
+
+          <dl class="hub-facts">
+            <div>
+              <dt>Usuário</dt>
+              <dd class="truncate">{% if a.platform == 'whatsapp_status' %}instância {{ a.external_id }}{% elif a.platform == 'facebook_page' %}{{ a.category|default:"—" }}{% elif a.platform == 'instagram' %}{% if a.username %}@{{ a.username }}{% endif %}{% if a.parent %}{% if a.username %} · {% endif %}via Página {{ a.parent.name }}{% endif %}{% elif a.username %}@{{ a.username }}{% else %}—{% endif %}</dd>
+            </div>
+            <div>
+              <dt>Seguidores</dt>
+              <dd>{% if a.followers_count is None %}—{% else %}{{ a.followers_count|floatformat:"g" }}{% endif %}</dd>
+            </div>
+            <div>
+              <dt>Publicações</dt>
+              <dd>{{ a.published_count|floatformat:"g" }}</dd>
+            </div>
+            <div>
+              <dt>Conectada em</dt>
+              <dd>{{ a.connected_at|date:"d/m/Y" }}</dd>
+            </div>
+          </dl>
+
+          <div class="hub-meta">
+            <p><span class="text-muted">Última sincronização:</span> {% if a.last_checked_at %}{{ a.last_checked_at|date:"d/m/Y H:i" }}{% else %}Nunca{% endif %}</p>
+            {% if a.token_expires_at %}<p><span class="text-muted">Validade:</span> token expira em {{ a.days_until_token_expiry }} dia(s)</p>{% endif %}
+            <div class="flex flex-wrap items-center gap-1.5">
+              <span class="text-muted">Permissões:</span>
+              {% for task in a.granted_tasks %}<span class="badge">{{ task }}</span>{% empty %}<span>—</span>{% endfor %}
+            </div>
+          </div>
+
+          <div class="hub-actions">
+            <form method="post" action="{% url 'social:account_check' a.pk %}">
+              {% csrf_token %}
+              <button type="submit" class="btn {% if not a.needs_reauth %}btn-primary{% endif %}"><i data-lucide="refresh-cw" class="h-4 w-4"></i>Atualizar informações</button>
+            </form>
+            {% if p.connect.method == "get" %}
+              {% if p.configured %}
+              <a href="{{ a.reconnect_url }}" class="btn {% if a.needs_reauth %}btn-primary{% endif %}"><i data-lucide="key-round" class="h-4 w-4"></i>Reconectar</a>
+              {% else %}
+              <button type="button" class="btn" disabled aria-disabled="true" title="{{ p.network.not_configured }}"><i data-lucide="key-round" class="h-4 w-4"></i>Reconectar</button>
+              {% endif %}
+            {% else %}
+            <form method="post" action="{{ a.reconnect_url }}">
+              {% csrf_token %}
+              <button type="submit" class="btn {% if a.needs_reauth %}btn-primary{% endif %}" {% if not p.configured %}disabled aria-disabled="true" title="{{ p.network.not_configured }}"{% endif %}><i data-lucide="link" class="h-4 w-4"></i>Reconectar</button>
+            </form>
+            {% endif %}
+            <form method="post" action="{% url 'social:account_disconnect' a.pk %}" class="sm:ml-auto" data-confirm="Desconectar “{{ a.name }}”? {% if a.platform == 'facebook_page' %}O Instagram vinculado a esta Página também será desconectado. {% endif %}{% if a.platform == 'whatsapp_status' %}A chave da instância{% else %}O token{% endif %} será apagad{% if a.platform == 'whatsapp_status' %}a{% else %}o{% endif %} do Social Hub.">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-ghost text-danger"><i data-lucide="unlink" class="h-4 w-4"></i>Desconectar</button>
+            </form>
+          </div>
+          {% if a.needs_reauth and not p.configured %}<p class="mt-3 text-xs text-muted">{{ p.network.not_configured }}</p>{% endif %}
+        </article>
+        {% endfor %}
+
+      {% else %}
+        <div class="hub-empty">
+          <span class="hub-hero hub-{{ p.network.slug }}" aria-hidden="true"><i data-lucide="{{ p.network.icon }}" class="h-10 w-10"></i></span>
+          <h2 class="mt-5 text-lg font-semibold">Nenhuma conta vinculada</h2>
+          <p class="mt-1 max-w-sm text-muted">{% if p.configured %}{{ p.network.hint }}{% else %}{{ p.network.not_configured }}{% endif %}</p>
+          <div class="mt-6">
+            {% if p.connect.method == "get" %}
+              {% if p.configured %}
+              <a href="{{ p.connect.url }}" class="btn btn-primary px-6"><i data-lucide="plus" class="h-4 w-4"></i>Conectar conta</a>
+              {% else %}
+              <button type="button" class="btn btn-primary px-6" disabled aria-disabled="true"><i data-lucide="plus" class="h-4 w-4"></i>Conectar conta</button>
+              {% endif %}
+            {% else %}
+            <form method="post" action="{{ p.connect.url }}">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-primary px-6" {% if not p.configured %}disabled aria-disabled="true"{% endif %}><i data-lucide="plus" class="h-4 w-4"></i>Conectar conta</button>
+            </form>
+            {% endif %}
+          </div>
+        </div>
+      {% endif %}
+    </section>
+    {% endfor %}
+  </div>
+</div>
 {% endblock %}
+{% block scripts %}<script src="{% static 'js/connections.js' %}"></script>{% endblock %}

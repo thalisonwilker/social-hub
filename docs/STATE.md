@@ -10,10 +10,11 @@ alwaysApply: true
 > todo. Diferente do **ADR** (decisão durável e imutável). Decisão estrutural → ADR; estado do
 > trabalho → aqui. Atualize ao **pausar/encerrar**; leia ao **retomar**. Use a skill `/handoff`.
 
-**Última atualização:** 2026-11-19 por Thalyson
+**Última atualização:** 2026-11-21 por Thalyson
 
 ## Em andamento / próximo passo
 > O que está aberto agora e a **próxima ação concreta** (não "continuar a feature" — diga o passo).
+- **0017 central de conexões**: implementada (985 testes verdes, commitada na branch `feature/0017-central-de-conexoes`; migração `social.0010_account_followers_count`; `npm run build` refeito). `/contas/` com coluna de ícones + painel, troca sem recarregar (`static/js/connections.js`), seguidores lidos ao "Atualizar informações" (Facebook/Instagram; Threads mostra "—" porque exigiria `threads_manage_insights`). UAT no navegador feito com dados fictícios (desktop, celular, claro/escuro, teclado). Próximo: **seu UAT com contas reais**; confirmar que o Instagram devolve `followers_count` com o token da Página; depois integrar a branch na `main`.
 - **0016 recuperação de senha**: implementada (952 testes verdes, nada commitado; migração `accounts.0004`). UAT no navegador feito com e-mail em arquivo (`var/emails/`): pedido → link → nova senha → login com aviso; reuso do link recusado. Próximo: **configurar o SMTP real no `.env`** (`EMAIL_HOST`…`DEFAULT_FROM_EMAIL`) e conferir a entrega e o `PUBLIC_BASE_URL` (hoje aponta para um túnel antigo); depois commitar. ADR-0017.
 - **0015 revisão do cadastro**: implementada (925 testes verdes, nada commitado; migração `accounts.0003_unique_lower_email` — índice único em `lower(email)`). Botão "Registrar" com carregamento e envio único, mensagem final nova, nomes com acento decomposto, e-mail do navegador igual ao do Django, erros acessíveis. UAT no navegador feito. Próximo: commitar.
 - **0014 jornada de login**: implementada (916 testes verdes, nada commitado; migração `accounts.0002_loginattempt`; `npm run build:css` refeito). UAT no navegador feito: validação antes do envio, 401 genérico, login certo → seleção de perfil, carregamento "Entrando…" com envio único. Próximo: **seu UAT** (bloqueio 429 com 5 erros, tema claro, celular) e commitar. O `admin` agora entra com o **e-mail** (`DJANGO_SUPERUSER_EMAIL`), inclusive em `/admin/`. ADR-0016.
@@ -35,6 +36,7 @@ alwaysApply: true
 
 ## Decisões recentes
 > Resumo cronológico. Se for difícil de reverter, vire um ADR e linke aqui.
+- 2026-11-21: Seguidores do Threads ficam fora da 0017 (exigiria a permissão `threads_manage_insights` e reconexão); Facebook/Instagram usam `followers_count` com as permissões atuais — spec 0017.
 - 2026-11-20: E-mail pelo SMTP nativo do Django (arquivo em `var/emails/` sem SMTP) e recuperação de senha com token de uso único em hash, limites no banco e link sem token nos logs — [ADR-0017](architecture/adr/0017-envio-de-e-mail-smtp-e-recuperacao-de-senha-com-token-em-hash.md)
 - 2026-11-19: Limite de tentativas e idempotência do login no banco (`LoginAttempt`, e-mail como HMAC, `REMOTE_ADDR`, retenção 24 h); login só por e-mail — [ADR-0016](architecture/adr/0016-limitacao-de-tentativas-e-idempotencia-do-login-no-banco.md)
 - 2026-11-19: Cadastro público com `username` = e-mail em minúsculas e login por e-mail sem diferenciar maiúsculas; trava de idempotência no banco (chave assinada de 2 h, única, gravada na transação do usuário) porque há 2 workers e nenhum cache compartilhado — spec 0013.

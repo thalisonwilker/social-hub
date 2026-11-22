@@ -58,6 +58,8 @@ alwaysApply: false
 - 2026-11-19 · Unicode/nomes · Texto colado do macOS pode vir com acento decomposto (NFD: `e` + U+0301); o `\w` do Python não aceita o acento combinante · normalizar para NFC antes de validar (servidor e navegador).
 - 2026-11-20 · CSRF/Referrer-Policy · `Referrer-Policy: no-referrer` na página de um formulário faz o navegador enviar `Origin: null` no POST e o CSRF do Django recusa (403) · usar `no-referrer` só em respostas que não têm formulário (ex.: o redirect que tira o token da URL).
 
+- 2026-11-21 · Tailwind/purge · Classe montada no template (`hub-{{ slug }}`) dentro de `@layer components` some do CSS gerado (o purge não acha o nome literal) · regras para classes dinâmicas ficam fora do `@layer`, ou o nome vai literal no template.
+
 ## Promovidas (histórico curto)
 > Rastro de para onde foram as lições podadas — só o link, sem reexplicar. Poda este histórico também.
 - <YYYY-MM-DD: "<lição>" → [ADR-NNNN](architecture/adr/NNNN-*.md) / glossary / CLAUDE.md>

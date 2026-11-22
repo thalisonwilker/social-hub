@@ -38,7 +38,7 @@ class AccountsViewsTests(TestCase):
     # ---- AC-11 -----------------------------------------------------------
     def test_AC_11_empty_state(self):
         response = self.client.get(reverse("social:accounts"))
-        self.assertContains(response, "Nenhuma conta conectada")
+        self.assertContains(response, "Nenhuma conta vinculada")  # spec 0017: a tela virou a central de conexões
 
     def test_AC_11_lists_only_own_accounts_without_tokens(self):
         mine = make_account(self.alice, "1", "Minha Loja", category="Varejo")
@@ -47,9 +47,9 @@ class AccountsViewsTests(TestCase):
         response = self.client.get(reverse("social:accounts"))
         self.assertContains(response, "Minha Loja")
         self.assertNotContains(response, "Loja do Bob")
-        self.assertContains(response, "Ativa")
+        self.assertContains(response, "Conexão ativa")  # spec 0017: a tela virou a central de conexões
         self.assertContains(response, "Reconexão necessária")
-        self.assertContains(response, "Verificar")
+        self.assertContains(response, "Atualizar informações")
         self.assertContains(response, "Desconectar")
         self.assertNotContains(response, PAGE_TOKEN_1)
         self.assertNotContains(response, mine.access_token_enc)
@@ -60,7 +60,8 @@ class AccountsViewsTests(TestCase):
 
     def test_AC_12_ok_keeps_active_and_updates_last_checked(self):
         account = make_account(self.alice, status=SocialAccount.Status.NEEDS_REAUTH, last_error="x")
-        with mock.patch.object(GraphClient, "get_page", return_value={"id": "1"}) as m:
+        with mock.patch.object(GraphClient, "get_page", return_value={"id": "1"}) as m, \
+             mock.patch.object(GraphClient, "get_followers_count", return_value=None):  # spec 0017
             response = self.check(account)
         m.assert_called_once_with("1", PAGE_TOKEN_1)
         account.refresh_from_db()
@@ -93,7 +94,7 @@ class AccountsViewsTests(TestCase):
     def test_AC_13_disconnect_deletes_account_and_token(self):
         account = make_account(self.alice)
         response = self.client.post(reverse("social:account_disconnect", args=[account.pk]), follow=True)
-        self.assertRedirects(response, reverse("social:accounts"))
+        self.assertRedirects(response, reverse("social:accounts") + "?rede=facebook")  # spec 0017: a tela virou a central de conexões
         self.assertContains(response, "foi desconectada")
         self.assertFalse(SocialAccount.objects.filter(pk=account.pk).exists())
 

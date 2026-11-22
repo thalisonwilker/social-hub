@@ -221,6 +221,14 @@ class GraphClient(BaseGraphClient):
     def get_page(self, page_id: str, page_token: str) -> dict:
         return self._request("GET", page_id, params={"fields": "id,name"}, token=page_token)
 
+    def get_followers_count(self, object_id: str, token: str) -> int | None:
+        """`followers_count` de uma Página ou de uma conta Instagram (spec 0017). Ausente ou inválido → None."""
+        data = self._request("GET", object_id, params={"fields": "followers_count"}, token=token, label="followers")
+        value = data.get("followers_count")
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            return None
+        return value
+
     # --- Publicação ------------------------------------------------------------
     def publish_photo(self, page_id: str, page_token: str, *, image, filename: str, content_type: str, message: str) -> dict:
         """Publica uma foto com legenda na Página (`POST /{page_id}/photos`, multipart).

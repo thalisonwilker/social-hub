@@ -109,3 +109,76 @@
   .MuiOutlinedInput-root:has(input[aria-invalid="true"]) .MuiOutlinedInput-notchedOutline { border-color: rgb(var(--danger)); }
   .MuiFormControl-root:has(input[aria-invalid="true"]) .MuiInputLabel-root { color: rgb(var(--danger)); }
 }
+
+/* Central de conexões (spec 0017). Cores de marca como variáveis; tema pelos tokens. */
+@layer components {
+  .hub { @apply grid gap-4 md:grid-cols-[auto_minmax(0,1fr)] md:gap-6; }
+
+  .hub-rail { @apply rounded-[14px] border border-line bg-surface p-3 shadow-card md:flex md:items-center md:p-4; }
+  .hub-tabs { @apply flex flex-row justify-center gap-3 md:flex-col; }
+  .hub-tab {
+    @apply relative flex h-14 w-14 items-center justify-center rounded-[12px] border border-line bg-surface-2 text-muted/70 outline-none transition duration-200 ease-out;
+  }
+  .hub-tab:not([data-state="disconnected"]) { color: rgb(var(--brand)); }
+  .hub-tab:hover, .hub-tab:focus-visible {
+    @apply bg-surface;
+    box-shadow: 0 0 0 1px rgb(var(--line)), 0 0 18px -4px rgb(var(--brand) / 0.55);
+  }
+  .hub-tab:hover:not([data-state="disconnected"]) { filter: brightness(1.12); }
+  .hub-tab[aria-selected="true"] {
+    @apply border-accent bg-accent/10;
+    box-shadow: 0 0 0 1px rgb(var(--accent));
+  }
+  .hub-tab:focus-visible { @apply outline outline-2 outline-offset-2 outline-accent; }
+  .hub-dot { @apply absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full border-2 border-surface-2 bg-muted/50; }
+  .hub-tab[data-state="connected"] .hub-dot { @apply bg-ok; }
+  .hub-tab[data-state="needs_reauth"] .hub-dot { @apply bg-warn; }
+  .hub-tip {
+    @apply pointer-events-none absolute left-1/2 top-full z-20 mt-2 -translate-x-1/2 whitespace-nowrap rounded-md border border-line bg-surface px-2 py-1 text-xs font-medium text-fg opacity-0 shadow-card transition-opacity duration-150;
+    @apply md:left-full md:top-1/2 md:mt-0 md:ml-3 md:-translate-y-1/2 md:translate-x-0;
+  }
+  .hub-tab:hover .hub-tip, .hub-tab:focus-visible .hub-tip { @apply opacity-100; }
+
+  .hub-panel { @apply min-w-0 rounded-[14px] border border-line bg-surface p-5 shadow-card sm:p-8; }
+  .hub-view { animation: hub-in 180ms ease-out; }
+  .hub-view:focus { outline: none; }
+  .hub-account { animation: hub-in 180ms ease-out; }
+  .hub-eyebrow { @apply mb-5 text-xs font-medium uppercase tracking-[0.16em] text-muted; }
+  .hub-accounts { @apply mb-6 flex flex-wrap gap-2 border-b border-line pb-4; }
+  .hub-account-tab { @apply inline-flex max-w-full items-center gap-2 truncate rounded-full border border-line bg-surface-2 px-3 py-1 text-xs font-medium text-muted transition-colors hover:text-fg; }
+  .hub-account-tab[aria-selected="true"] { @apply border-accent bg-accent/10 text-fg; }
+  .hub-mini-dot { @apply h-1.5 w-1.5 shrink-0 rounded-full bg-ok; }
+  .hub-mini-dot.is-warn { @apply bg-warn; }
+
+  .hub-avatar { @apply relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface-2; color: rgb(var(--brand)); }
+  .hub-avatar img { @apply h-full w-full object-cover; }
+  .hub-status { @apply mt-0.5 text-xs font-medium; }
+  .hub-status.is-ok { @apply text-ok; }
+  .hub-status.is-warn { @apply text-warn; }
+
+  .hub-facts { @apply mt-6 grid grid-cols-2 gap-x-6 gap-y-4 border-t border-line pt-6 sm:grid-cols-4; }
+  .hub-facts dt { @apply text-xs uppercase tracking-wide text-muted; }
+  .hub-facts dd { @apply mt-1 text-base font-semibold; }
+  .hub-meta { @apply mt-6 space-y-2 text-sm; }
+  .hub-actions { @apply mt-8 flex flex-col gap-2 border-t border-line pt-6 sm:flex-row sm:flex-wrap sm:items-center; }
+  .hub-actions form, .hub-actions > a, .hub-actions > button { @apply w-full sm:w-auto; }
+  .hub-actions form > button { @apply w-full sm:w-auto; }
+
+  .hub-empty { @apply flex flex-col items-center py-10 text-center; }
+  .hub-hero { @apply flex h-24 w-24 items-center justify-center rounded-[22px] border border-line bg-surface-2; color: rgb(var(--brand)); box-shadow: 0 0 40px -12px rgb(var(--brand) / 0.6); }
+}
+
+/* Fora do @layer: as classes vêm de `hub-{{ slug }}` (dinâmico) e o purge do Tailwind as removeria. */
+.hub-facebook { --brand: 24 119 242; }
+.hub-instagram { --brand: 225 48 108; }
+.hub-threads { --brand: var(--fg); }
+.hub-whatsapp { --brand: 37 211 102; }
+
+@keyframes hub-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hub-view, .hub-account { animation: none; }
+  .hub-tab, .hub-tip { transition: none; }
+}

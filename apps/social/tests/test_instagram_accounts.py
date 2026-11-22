@@ -48,7 +48,8 @@ class InstagramAccountsTests(TestCase):
         self.assertNotIn("page-token", html)  # AC-21
 
     def test_AC_21_verify_ok_uses_the_parent_page(self):
-        with mock.patch.object(GraphClient, "get_page", return_value={"id": "1"}) as get_page:
+        with mock.patch.object(GraphClient, "get_page", return_value={"id": "1"}) as get_page, \
+             mock.patch.object(GraphClient, "get_followers_count", return_value=None):  # spec 0017
             self.client.post(reverse("social:account_check", args=[self.ig.pk]))
         self.assertEqual(get_page.call_args.args[0], self.page.external_id)
 

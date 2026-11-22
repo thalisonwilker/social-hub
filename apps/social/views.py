@@ -9,6 +9,7 @@ from django.views.generic import TemplateView
 from apps.core.views import PlaceholderView  # noqa: F401  (usado em urls.py)
 
 from .conf import evolution_configured, meta_configured, threads_configured
+from .connections import accounts_url, build_panels
 from .crypto import TokenCryptoError
 from .services import facebook_connect
 from .models import SocialAccount
@@ -143,7 +144,10 @@ class AccountsView(TemplateView):
             configured=meta_configured(),
             threads_configured=threads_configured(),
             evolution_configured=evolution_configured(),
-            accounts=profiles.scope(self.request, SocialAccount.objects.filter(owner=self.request.user)).select_related("parent"),
+            panels=build_panels(
+                profiles.scope(self.request, SocialAccount.objects.filter(owner=self.request.user)).select_related("parent"),
+                self.request.GET.get("rede"),
+            ),
             active_profile=profiles.get_active(self.request),
         )
         return context
@@ -183,14 +187,29 @@ class AccountCheckView(AccountActionView):
         self._save(account, status=SocialAccount.Status.NEEDS_REAUTH, last_error=f"Meta erro {code}")
         messages.warning(request, f"Reconexão necessária para “{account.name}”.")
 
-    def _ok(self, request, account):
-        self._save(account, status=SocialAccount.Status.ACTIVE, last_error="")
+    def _ok(self, request, account, followers_of=None):
+        """`followers_of` = id na Graph (Página ou Instagram) cujo `followers_count` é relido (spec 0017, AC-9)."""
+        fields = {"status": SocialAccount.Status.ACTIVE, "last_error": ""}
+        if followers_of:
+            followers = self._read_followers(followers_of, account)
+            if followers is not None:
+                fields["followers_count"] = followers
+        self._save(account, **fields)
         messages.success(request, f"“{account.name}” está conectada e funcionando.")
+
+    @staticmethod
+    def _read_followers(object_id, account):
+        """Falha aqui nunca muda o status: a verificação já passou; mantém o valor anterior (AC-9)."""
+        try:
+            return GraphClient.from_settings().get_followers_count(object_id, account.get_token())
+        except (MetaApiError, TokenCryptoError):
+            logger.info("followers_unavailable platform=%s", account.platform)
+            return None
 
     def _check_facebook(self, request, account):
         if not meta_configured():
             messages.error(request, MSG_NOT_CONFIGURED)
-            return redirect("social:accounts")
+            return redirect(accounts_url(account.platform))
         try:
             GraphClient.from_settings().get_page(account.external_id, account.get_token())
         except MetaApiError as exc:
@@ -198,19 +217,19 @@ class AccountCheckView(AccountActionView):
                 self._needs_reauth(request, account, exc.code)
             else:
                 messages.error(request, self.MSG_CANNOT_CHECK)
-            return redirect("social:accounts")
+            return redirect(accounts_url(account.platform))
         except TokenCryptoError:
             messages.error(request, self.MSG_CANNOT_CHECK)
-            return redirect("social:accounts")
-        self._ok(request, account)
-        return redirect("social:accounts")
+            return redirect(accounts_url(account.platform))
+        self._ok(request, account, followers_of=account.external_id)
+        return redirect(accounts_url(account.platform))
 
     def _check_instagram(self, request, account):
         """O Instagram usa o token da Página vinculada: verificar é consultar a Página (spec 0009)."""
         page = account.parent
         if not meta_configured() or page is None:
             messages.error(request, MSG_NOT_CONFIGURED if page else self.MSG_CANNOT_CHECK)
-            return redirect("social:accounts")
+            return redirect(accounts_url(account.platform))
         try:
             GraphClient.from_settings().get_page(page.external_id, account.get_token())
         except MetaApiError as exc:
@@ -219,18 +238,18 @@ class AccountCheckView(AccountActionView):
                 SocialAccount.objects.filter(pk=page.pk).update(status=SocialAccount.Status.NEEDS_REAUTH)
             else:
                 messages.error(request, self.MSG_CANNOT_CHECK)
-            return redirect("social:accounts")
+            return redirect(accounts_url(account.platform))
         except TokenCryptoError:
             messages.error(request, self.MSG_CANNOT_CHECK)
-            return redirect("social:accounts")
-        self._ok(request, account)
-        return redirect("social:accounts")
+            return redirect(accounts_url(account.platform))
+        self._ok(request, account, followers_of=account.external_id)
+        return redirect(accounts_url(account.platform))
 
     def _check_whatsapp(self, request, account):
         """Consulta o estado da conexão da instância: `open` → ativa; desconectada/chave recusada → Reconexão necessária."""
         if not evolution_configured():
             messages.error(request, evolution_connect.MSG_NOT_CONFIGURED)
-            return redirect("social:accounts")
+            return redirect(accounts_url(account.platform))
         try:
             state = EvolutionClient.from_settings().connection_state(account.external_id, account.get_token())
         except EvolutionApiError as exc:
@@ -239,38 +258,38 @@ class AccountCheckView(AccountActionView):
                 messages.warning(request, f"Reconexão necessária para “{account.name}”.")
             else:
                 messages.error(request, self.MSG_CANNOT_CHECK)
-            return redirect("social:accounts")
+            return redirect(accounts_url(account.platform))
         except TokenCryptoError:
             messages.error(request, self.MSG_CANNOT_CHECK)
-            return redirect("social:accounts")
+            return redirect(accounts_url(account.platform))
         if state != evolution_connect.OPEN:
             evolution_connect.needs_reauth(account)
             messages.warning(request, f"Reconexão necessária para “{account.name}”.")
-            return redirect("social:accounts")
+            return redirect(accounts_url(account.platform))
         self._ok(request, account)
-        return redirect("social:accounts")
+        return redirect(accounts_url(account.platform))
 
     def _check_threads(self, request, account):
         if not threads_configured():
             messages.error(request, "Integração com o Threads não configurada.")
-            return redirect("social:accounts")
+            return redirect(accounts_url(account.platform))
         client = ThreadsClient.from_settings()
         try:
             if not threads_tokens.ensure_fresh(account, client=client):  # expirado ou token recusado na renovação
                 messages.warning(request, f"Reconexão necessária para “{account.name}”.")
-                return redirect("social:accounts")
+                return redirect(accounts_url(account.platform))
             client.get_profile(account.external_id, account.get_token())
         except MetaApiError as exc:
             if exc.is_token_error:
                 self._needs_reauth(request, account, exc.code)
             else:
                 messages.error(request, self.MSG_CANNOT_CHECK)
-            return redirect("social:accounts")
+            return redirect(accounts_url(account.platform))
         except TokenCryptoError:
             messages.error(request, self.MSG_CANNOT_CHECK)
-            return redirect("social:accounts")
+            return redirect(accounts_url(account.platform))
         self._ok(request, account)
-        return redirect("social:accounts")
+        return redirect(accounts_url(account.platform))
 
 
 class AccountDisconnectView(AccountActionView):
@@ -282,4 +301,4 @@ class AccountDisconnectView(AccountActionView):
         account.delete()
         logger.info("account_disconnected")
         messages.success(request, f"“{name}” foi desconectada.")
-        return redirect("social:accounts")
+        return redirect(accounts_url(account.platform))

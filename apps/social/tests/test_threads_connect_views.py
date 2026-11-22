@@ -42,7 +42,7 @@ class ThreadsConnectTests(TestCase):
         html = page.content.decode()
         threads_form = html[html.index(reverse(CONNECT)):]
         button = threads_form[threads_form.index("<button"):threads_form.index("</button>")]
-        self.assertIn("Conectar Threads", button)
+        self.assertIn("Conectar conta", button)  # spec 0017: a tela virou a central de conexões
         self.assertIn("disabled", button)
         response = self.client.post(reverse(CONNECT), HTTP_HOST=HOST, follow=True)
         self.assertRedirects(response, reverse("social:accounts"))

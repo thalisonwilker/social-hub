@@ -37,7 +37,7 @@ class ThreadsAccountsTests(TestCase):
         self.assertContains(response, "Perfil do Threads")
         self.assertContains(response, "@maria")
         self.assertContains(response, "token expira em 9 dia(s)")  # 10 dias - frações do instante do teste
-        self.assertContains(response, "Ativa")
+        self.assertContains(response, "Conexão ativa")  # spec 0017: a tela virou a central de conexões
         self.assertNotContains(response, "threads-long-token")
         self.assertNotContains(response, acc.access_token_enc)
 
@@ -76,8 +76,9 @@ class ThreadsAccountsTests(TestCase):
         page.set_token("t")
         page.save()
         html = self.accounts_page().content.decode()
-        self.assertEqual(html.count(f'action="{reverse("social:threads_connect")}"'), 2)   # botão do topo + Reconectar
-        self.assertEqual(html.count(f'action="{reverse("social:facebook_connect")}"'), 2)  # idem para o Facebook
+        # spec 0017: rede conectada mostra só o Reconectar (o "Conectar conta" é do painel de rede desconectada)
+        self.assertEqual(html.count(f'action="{reverse("social:threads_connect")}"'), 1)
+        self.assertEqual(html.count(f'action="{reverse("social:facebook_connect")}"'), 2)  # Reconectar + "Conectar conta" do Instagram
 
     # ---- AC-10 -----------------------------------------------------------
     def test_AC_10_verify_refreshes_when_due_then_reads_the_profile(self):
@@ -148,7 +149,7 @@ class ThreadsAccountsTests(TestCase):
         target = PublicationTarget.objects.create(
             publication=pub, account=acc, page_external_id="900", page_name="Maria", platform="threads")
         response = self.client.post(reverse("social:account_disconnect", args=[acc.pk]), follow=True)
-        self.assertRedirects(response, reverse("social:accounts"))
+        self.assertRedirects(response, reverse("social:accounts") + "?rede=threads")  # spec 0017: a tela virou a central de conexões
         self.assertContains(response, "foi desconectada")
         self.assertFalse(SocialAccount.objects.filter(pk=acc.pk).exists())
         target.refresh_from_db()

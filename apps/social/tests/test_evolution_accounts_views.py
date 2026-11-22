@@ -154,8 +154,8 @@ class WhatsAppAccountsTests(TestCase):
         """AC-4: com a Evolution configurada o botão de WhatsApp existe, e os outros continuam."""
         page = self.client.get(reverse("social:accounts"))
         self.assertContains(page, reverse(NEW))
-        self.assertContains(page, "Conectar Facebook")
-        self.assertContains(page, "Conectar Threads")
+        self.assertContains(page, reverse("social:facebook_connect"))  # spec 0017: a tela virou a central de conexões
+        self.assertContains(page, reverse("social:threads_connect"))
         self.assertNotContains(page, "Integração com o WhatsApp não configurada")
 
     # ---- AC-5 ------------------------------------------------------------
@@ -166,7 +166,7 @@ class WhatsAppAccountsTests(TestCase):
         self.assertContains(response, "WhatsApp (Status)")
         self.assertContains(response, "Loja do centro")
         self.assertContains(response, "instância loja")
-        self.assertContains(response, "Ativa")
+        self.assertContains(response, "Conexão ativa")  # spec 0017: a tela virou a central de conexões
         self.assertNotContains(response, INSTANCE_KEY)
         self.assertNotContains(response, "access_token_enc")
 

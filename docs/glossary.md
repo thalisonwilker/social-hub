@@ -67,6 +67,9 @@ alwaysApply: false
 | Tentativa de login | Envio de credenciais válidas no formato, registrado com chave, hash do e-mail, IP e resultado (sem senha nem sessão); base do Bloqueio por tentativas. | Sessão | Contas de usuário |
 | Token da imagem | Valor assinado (HMAC + carimbo de tempo) que identifica a publicação e expira. | Token de acesso do Threads/Página | Social |
 | Token de longa duração | Token do Threads válido por 60 dias, renovável depois de 24 h de vida. | Token de Página (não expira) | Social |
+| Central de conexões | Tela `/contas/` (spec 0017): coluna de ícones das Redes como navegação e painel com dados e ações da Rede selecionada. | Wizard de conexão do Perfil | Social |
+| Rede | Um dos quatro canais da Central de conexões (Facebook, Instagram, Threads, WhatsApp), mapeado para `SocialAccount.Platform`; "conectada" = ≥ 1 Conta social dela no Perfil ativo. | Conta social (uma Rede pode ter várias) | Social |
+| Seguidores | `followers_count` lido na plataforma ao "Atualizar informações" (Página do Facebook e Instagram); nulo = desconhecido ("—"), sempre no Threads e no WhatsApp. | Publicações (o que o Hub publicou) | Social |
 | Imagem gerada | Imagem criada por IA (Gemini) na nova publicação; temporária, sanitizada e do dono; vira a imagem da publicação. | Imagem enviada | Social |
 | Remover do Hub | Apagar a publicação (ou um alvo) do histórico e a imagem do volume; o post na rede continua. | Apagar na plataforma | Social |
 | Token de Página | Credencial da Meta para agir como a Página; guardada criptografada. | Token de usuário | Social |
